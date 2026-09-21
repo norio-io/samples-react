@@ -103,6 +103,7 @@ export function ReservationListPage() {
     [studios],
   )
 
+  const isResultCurrent = result !== null && appliedSearch === search
   const isInitialLoading = status === 'loading'
   const isRefreshing = status === 'refreshing'
   const hasError = status === 'error'
@@ -116,10 +117,14 @@ export function ReservationListPage() {
 
   const items = result?.items ?? []
   const total = result?.total ?? 0
-  // 範囲外のページ番号は応答側で丸められるため、表示は常に応答を基準とする。
-  const currentPage = result?.page ?? search.page
   const totalPages = result?.totalPages ?? 1
-  const firstIndex = total === 0 ? 0 : (currentPage - 1) * (result?.perPage ?? 0) + 1
+  // 表示中の内容に対応するページ。範囲外のページ番号は応答側で丸められるため、
+  // 件数およびページの表示は常に応答を基準とする。
+  const displayedPage = result?.page ?? search.page
+  // ページ送りの基準。再取得中に保持している結果は現在の条件に対応しないため、
+  // その間は要求中のページ番号を基準とする。
+  const targetPage = isResultCurrent ? displayedPage : search.page
+  const firstIndex = total === 0 ? 0 : (displayedPage - 1) * (result?.perPage ?? 0) + 1
   const lastIndex = total === 0 ? 0 : firstIndex + items.length - 1
 
   const resetSearch = () => {
@@ -186,20 +191,20 @@ export function ReservationListPage() {
 
         <fieldset className="filters__group">
           <legend>ステータス</legend>
-          {RESERVATION_STATUSES.map((status_) => (
-            <label key={status_} className="choice">
+          {RESERVATION_STATUSES.map((reservationStatus) => (
+            <label key={reservationStatus} className="choice">
               <input
                 type="checkbox"
-                checked={search.statuses.includes(status_)}
+                checked={search.statuses.includes(reservationStatus)}
                 onChange={() =>
                   updateSearch({
                     ...search,
-                    statuses: toggleValue(search.statuses, status_),
+                    statuses: toggleValue(search.statuses, reservationStatus),
                     page: DEFAULT_SEARCH.page,
                   })
                 }
               />
-              {RESERVATION_STATUS_LABELS[status_]}
+              {RESERVATION_STATUS_LABELS[reservationStatus]}
             </label>
           ))}
         </fieldset>
@@ -287,18 +292,18 @@ export function ReservationListPage() {
             <nav className="pager" aria-label="ページ送り">
               <button
                 type="button"
-                disabled={isInitialLoading || currentPage <= 1}
-                onClick={() => updateSearch({ ...search, page: currentPage - 1 })}
+                disabled={isInitialLoading || targetPage <= 1}
+                onClick={() => updateSearch({ ...search, page: targetPage - 1 })}
               >
                 前へ
               </button>
               <span>
-                ページ {currentPage} / {totalPages}
+                ページ {displayedPage} / {totalPages}
               </span>
               <button
                 type="button"
-                disabled={isInitialLoading || result === null || currentPage >= totalPages}
-                onClick={() => updateSearch({ ...search, page: currentPage + 1 })}
+                disabled={isInitialLoading || result === null || targetPage >= totalPages}
+                onClick={() => updateSearch({ ...search, page: targetPage + 1 })}
               >
                 次へ
               </button>

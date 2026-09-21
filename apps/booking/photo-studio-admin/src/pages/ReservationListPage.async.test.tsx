@@ -98,6 +98,21 @@ describe('ReservationListPage の非同期状態', () => {
     expect(new URLSearchParams(window.location.search).get('page')).toBe('2')
   })
 
+  it('例外が投げられた場合もエラー状態へ落ち、再試行できる', async () => {
+    const user = userEvent.setup()
+    listReservationsMock
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce(ok(resultOf('相川 陽向')))
+
+    renderAt('/')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('一覧を取得できませんでした。')
+    expect(screen.getByText('取得に失敗しました')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '再試行' }))
+    expect(await screen.findByText('相川 陽向')).toBeInTheDocument()
+  })
+
   it('古い応答は新しい応答を上書きしない', async () => {
     const user = userEvent.setup()
     const first = deferred<Result<ReservationListResult>>()

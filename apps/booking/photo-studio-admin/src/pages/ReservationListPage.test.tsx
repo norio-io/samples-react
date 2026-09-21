@@ -242,6 +242,20 @@ describe('ReservationListPage', () => {
     await waitFor(() => expect(screen.queryByText('更新中…')).not.toBeInTheDocument())
   })
 
+  it('再取得中でも続けてページ送りできる', async () => {
+    const user = userEvent.setup()
+    renderAt('/')
+    await findRows()
+
+    const next = screen.getByRole('button', { name: '次へ' })
+    await user.click(next)
+    // 応答が届く前の操作でも、要求中のページ番号を基準に進む。
+    await user.click(next)
+
+    await waitFor(() => expect(currentSearch().get('page')).toBe('3'))
+    expect(await screen.findByText(/80件中 41–60件/)).toBeInTheDocument()
+  })
+
   it('各行から詳細画面へ遷移できる', async () => {
     const rows = await (async () => {
       renderAt('/')

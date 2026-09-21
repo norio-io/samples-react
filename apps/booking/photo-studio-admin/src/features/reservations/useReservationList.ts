@@ -11,6 +11,9 @@ import { toListQuery, type ReservationSearch } from './searchQuery'
  */
 export type ReservationListStatus = 'loading' | 'refreshing' | 'ready' | 'error'
 
+/** 想定外の例外に対して表示する文言。 */
+const UNEXPECTED_ERROR_MESSAGE = '一覧を取得できませんでした。時間をおいて再度お試しください。'
+
 export interface ReservationListState {
   status: ReservationListStatus
   /** 直近に取得できた結果。再取得中は直前の条件に対応する結果を保持する。 */
@@ -38,21 +41,29 @@ export function useReservationList(search: ReservationSearch): ReservationListSt
     latestRequestId.current = requestId
     setStatus(hasResult.current ? 'refreshing' : 'loading')
 
-    void listReservations(toListQuery(search)).then((listResult) => {
-      // 古い応答が新しい応答を上書きしないようにする。
-      if (requestId !== latestRequestId.current) return
+    void listReservations(toListQuery(search))
+      .then((listResult) => {
+        // 古い応答が新しい応答を上書きしないようにする。
+        if (requestId !== latestRequestId.current) return
 
-      if (listResult.ok) {
-        hasResult.current = true
-        setResult(listResult.value)
-        setAppliedSearch(search)
-        setErrorMessage('')
-        setStatus('ready')
-      } else {
-        setErrorMessage(listResult.error.message)
+        if (listResult.ok) {
+          hasResult.current = true
+          setResult(listResult.value)
+          setAppliedSearch(search)
+          setErrorMessage('')
+          setStatus('ready')
+        } else {
+          setErrorMessage(listResult.error.message)
+          setStatus('error')
+        }
+      })
+      .catch(() => {
+        // 失敗は Result で表される想定だが、例外が投げられた場合も
+        // 取得中のまま固定されないよう error へ落とす。
+        if (requestId !== latestRequestId.current) return
+        setErrorMessage(UNEXPECTED_ERROR_MESSAGE)
         setStatus('error')
-      }
-    })
+      })
   }, [search, attempt])
 
   const retry = useCallback(() => {
