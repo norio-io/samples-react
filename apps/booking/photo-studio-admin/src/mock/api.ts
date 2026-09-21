@@ -1,0 +1,191 @@
+import type { Reservation, ReservationDraft, ReservationStatus, Studio } from '../domain/types'
+import { delay, shouldFailMutation } from './config'
+import { fail, ok, type Result } from './result'
+import { createSeedReservations, STUDIOS } from './seed'
+
+export type ReservationSortField = 'date' | 'createdAt' | 'customerName'
+export type SortDirection = 'asc' | 'desc'
+
+export interface ReservationSort {
+  field: ReservationSortField
+  direction: SortDirection
+}
+
+export interface ReservationListQuery {
+  studioId?: string
+  /** 指定がない場合はすべてのステータスを対象とする。 */
+  statuses?: readonly ReservationStatus[]
+  /** YYYY-MM-DD。指定日を含む。 */
+  dateFrom?: string
+  /** YYYY-MM-DD。指定日を含む。 */
+  dateTo?: string
+  /** 顧客名・電話番号・メールアドレス・利用目的を対象とした部分一致。 */
+  keyword?: string
+  sort?: ReservationSort
+  /** 1 始まり。 */
+  page?: number
+  perPage?: number
+}
+
+export interface ReservationListResult {
+  items: Reservation[]
+  /** 絞り込み後の総件数（ページング前）。 */
+  total: number
+  page: number
+  perPage: number
+  totalPages: number
+}
+
+export const DEFAULT_PER_PAGE = 20
+
+const DEFAULT_SORT: ReservationSort = { field: 'date', direction: 'asc' }
+
+let reservations: Reservation[] = createSeedReservations()
+
+/** テストおよび画面の再初期化で用いる。保持データを初期状態へ戻す。 */
+export function resetMockStore(): void {
+  reservations = createSeedReservations()
+}
+
+function clone(reservation: Reservation): Reservation {
+  return { ...reservation }
+}
+
+function matches(reservation: Reservation, query: ReservationListQuery): boolean {
+  if (query.studioId !== undefined && reservation.studioId !== query.studioId) return false
+  if (query.statuses !== undefined && query.statuses.length > 0) {
+    if (!query.statuses.includes(reservation.status)) return false
+  }
+  if (query.dateFrom !== undefined && reservation.date < query.dateFrom) return false
+  if (query.dateTo !== undefined && reservation.date > query.dateTo) return false
+  if (query.keyword !== undefined && query.keyword.trim() !== '') {
+    const keyword = query.keyword.trim().toLowerCase()
+    const haystack = [
+      reservation.customerName,
+      reservation.customerTel,
+      reservation.customerEmail,
+      reservation.purpose,
+    ]
+      .join('\n')
+      .toLowerCase()
+    if (!haystack.includes(keyword)) return false
+  }
+  return true
+}
+
+function compare(a: Reservation, b: Reservation, sort: ReservationSort): number {
+  const order = sort.direction === 'desc' ? -1 : 1
+  let result = 0
+  if (sort.field === 'date') {
+    result = a.date.localeCompare(b.date) || a.startHour - b.startHour
+  } else if (sort.field === 'createdAt') {
+    result = a.createdAt.localeCompare(b.createdAt)
+  } else {
+    result = a.customerName.localeCompare(b.customerName, 'ja')
+  }
+  // 並び順を一意に定めるため、同値は id で解決する。
+  return result === 0 ? a.id.localeCompare(b.id) : result * order
+}
+
+function overlaps(a: Reservation, b: Pick<Reservation, 'startHour' | 'hours'>): boolean {
+  return a.startHour < b.startHour + b.hours && b.startHour < a.startHour + a.hours
+}
+
+/** 予約一覧を取得する。絞り込み・並び替え・ページングを適用した結果と総件数を返す。 */
+export async function listReservations(
+  query: ReservationListQuery = {},
+): Promise<Result<ReservationListResult>> {
+  await delay()
+
+  const sort = query.sort ?? DEFAULT_SORT
+  const perPage = Math.max(1, query.perPage ?? DEFAULT_PER_PAGE)
+  const filtered = reservations.filter((reservation) => matches(reservation, query))
+  const sorted = [...filtered].sort((a, b) => compare(a, b, sort))
+  const total = sorted.length
+  const totalPages = Math.max(1, Math.ceil(total / perPage))
+  const page = Math.min(Math.max(1, query.page ?? 1), totalPages)
+  const start = (page - 1) * perPage
+
+  return ok({
+    items: sorted.slice(start, start + perPage).map(clone),
+    total,
+    page,
+    perPage,
+    totalPages,
+  })
+}
+
+/** 予約の詳細を取得する。 */
+export async function getReservation(id: string): Promise<Result<Reservation>> {
+  await delay()
+
+  const found = reservations.find((reservation) => reservation.id === id)
+  if (found === undefined) {
+    return fail('NOT_FOUND', `予約が見つかりません: ${id}`)
+  }
+  return ok(clone(found))
+}
+
+/** 予約のステータスを更新する。 */
+export async function updateReservationStatus(
+  id: string,
+  status: ReservationStatus,
+): Promise<Result<Reservation>> {
+  await delay()
+
+  if (shouldFailMutation()) {
+    return fail('TEMPORARY_FAILURE', 'ステータスを更新できませんでした。再度お試しください。')
+  }
+
+  const index = reservations.findIndex((reservation) => reservation.id === id)
+  const current = reservations[index]
+  if (index < 0 || current === undefined) {
+    return fail('NOT_FOUND', `予約が見つかりません: ${id}`)
+  }
+
+  const updated: Reservation = { ...current, status }
+  reservations[index] = updated
+  return ok(clone(updated))
+}
+
+/** 予約を登録する。同一スタジオ・同一時間帯に既存の予約がある場合は重複として返す。 */
+export async function createReservation(draft: ReservationDraft): Promise<Result<Reservation>> {
+  await delay()
+
+  if (shouldFailMutation()) {
+    return fail('TEMPORARY_FAILURE', '予約を登録できませんでした。再度お試しください。')
+  }
+
+  const duplicated = reservations.some(
+    (reservation) =>
+      reservation.status !== 'cancelled' &&
+      reservation.studioId === draft.studioId &&
+      reservation.date === draft.date &&
+      overlaps(reservation, draft),
+  )
+  if (duplicated) {
+    return fail('DUPLICATED', '指定の日時は既に予約されています。')
+  }
+
+  const created: Reservation = {
+    ...draft,
+    id: nextReservationId(),
+    createdAt: new Date().toISOString(),
+  }
+  reservations = [...reservations, created]
+  return ok(clone(created))
+}
+
+/** 絞り込みの選択肢に用いるスタジオ一覧を取得する。 */
+export async function listStudios(): Promise<Result<Studio[]>> {
+  await delay()
+  return ok(STUDIOS.map((studio) => ({ ...studio })))
+}
+
+function nextReservationId(): string {
+  const maxNumber = reservations.reduce((max, reservation) => {
+    const parsed = Number(reservation.id.replace('rsv-', ''))
+    return Number.isNaN(parsed) ? max : Math.max(max, parsed)
+  }, 0)
+  return `rsv-${String(maxNumber + 1).padStart(3, '0')}`
+}
