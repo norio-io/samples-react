@@ -72,6 +72,28 @@ describe('ReservationListPage', () => {
     expect(await screen.findByText(/80件中 21–40件/)).toBeInTheDocument()
   })
 
+  it('範囲外のページ番号は応答に合わせて丸められ、URLが履歴を積まずに追従する', async () => {
+    renderAt('/?page=999')
+
+    expect(await screen.findByText(/80件中 61–80件/)).toBeInTheDocument()
+    expect(screen.getByText(/ページ 4 \/ 4/)).toBeInTheDocument()
+    await waitFor(() => expect(currentSearch().get('page')).toBe('4'))
+
+    // 追従は replace で行うため、戻り先は一覧を開く前の状態となる。
+    window.history.back()
+    await waitFor(() => expect(window.location.search).toBe(''), { timeout: 3000 })
+  })
+
+  it('丸められたページからページ送りできる', async () => {
+    const user = userEvent.setup()
+    renderAt('/?page=999')
+    await waitFor(() => expect(currentSearch().get('page')).toBe('4'))
+
+    await user.click(screen.getByRole('button', { name: '前へ' }))
+    await waitFor(() => expect(currentSearch().get('page')).toBe('3'))
+    expect(await screen.findByText(/80件中 41–60件/)).toBeInTheDocument()
+  })
+
   it('不正なパラメータでも画面が壊れず既定値へフォールバックする', async () => {
     renderAt('/?from=yesterday&to=2026-02-31&studio=studio-x&status=unknown&sort=bogus&order=up&page=abc&%%%=1')
     const rows = await findRows()

@@ -70,6 +70,12 @@ export function ReservationListPage() {
       if (listResult.ok) {
         setResult(listResult.value)
         setErrorMessage('')
+        // 総件数は応答を受け取るまで分からないため、範囲外のページ番号は
+        // 応答側で丸められる。URL を丸めた結果へ追従させ、表示・ページ送り・
+        // URL の三者を一致させる。履歴は積まない。
+        if (listResult.value.page !== search.page) {
+          updateSearch({ ...search, page: listResult.value.page }, { replace: true })
+        }
       } else {
         setErrorMessage(listResult.error.message)
       }
@@ -77,7 +83,7 @@ export function ReservationListPage() {
     return () => {
       cancelled = true
     }
-  }, [search])
+  }, [search, updateSearch])
 
   // 履歴の移動などで外部から条件が変わった場合は、入力欄を追従させる。
   useEffect(() => {
@@ -104,7 +110,10 @@ export function ReservationListPage() {
 
   const items = result?.items ?? []
   const total = result?.total ?? 0
-  const firstIndex = total === 0 ? 0 : (search.page - 1) * (result?.perPage ?? 0) + 1
+  // 範囲外のページ番号は応答側で丸められるため、表示は常に応答を基準とする。
+  const currentPage = result?.page ?? search.page
+  const totalPages = result?.totalPages ?? 1
+  const firstIndex = total === 0 ? 0 : (currentPage - 1) * (result?.perPage ?? 0) + 1
   const lastIndex = total === 0 ? 0 : firstIndex + items.length - 1
 
   return (
@@ -234,18 +243,18 @@ export function ReservationListPage() {
       <nav className="pager" aria-label="ページ送り">
         <button
           type="button"
-          disabled={search.page <= 1}
-          onClick={() => updateSearch({ ...search, page: search.page - 1 })}
+          disabled={currentPage <= 1}
+          onClick={() => updateSearch({ ...search, page: currentPage - 1 })}
         >
           前へ
         </button>
         <span>
-          ページ {result?.page ?? search.page} / {result?.totalPages ?? 1}
+          ページ {currentPage} / {totalPages}
         </span>
         <button
           type="button"
-          disabled={result === null || search.page >= result.totalPages}
-          onClick={() => updateSearch({ ...search, page: search.page + 1 })}
+          disabled={result === null || currentPage >= totalPages}
+          onClick={() => updateSearch({ ...search, page: currentPage + 1 })}
         >
           次へ
         </button>
