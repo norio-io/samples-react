@@ -7,6 +7,7 @@ import type * as ApiModule from '../mock/api'
 import { listReservations, listStudios, type ReservationListResult } from '../mock/api'
 import { fail, ok, type Result } from '../mock/result'
 import { STUDIOS } from '../mock/seed'
+import { ReservationStatusOverridesProvider } from '../features/reservations/statusOverrides'
 import { ReservationListPage } from './ReservationListPage'
 
 // 応答の内容と到着順を制御するため、モックAPIそのものを差し替える。
@@ -56,7 +57,9 @@ function renderAt(path: string) {
   window.history.pushState({}, '', path)
   return render(
     <BrowserRouter>
-      <ReservationListPage />
+      <ReservationStatusOverridesProvider>
+        <ReservationListPage />
+      </ReservationStatusOverridesProvider>
     </BrowserRouter>,
   )
 }

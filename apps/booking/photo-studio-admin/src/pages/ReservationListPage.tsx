@@ -12,11 +12,16 @@ import {
   LIST_SORT_FIELDS,
   LIST_SORT_LABELS,
   parseSearch,
+  toDetailSearch,
   toSearchParams,
   toggleSort,
   type ListSortField,
   type ReservationSearch,
 } from '../features/reservations/searchQuery'
+import {
+  effectiveStatus,
+  useStatusOverrides,
+} from '../features/reservations/statusOverridesContext'
 import { useReservationList } from '../features/reservations/useReservationList'
 
 /** キーワード入力を検索条件へ反映するまでの待ち時間（ms）。 */
@@ -43,6 +48,10 @@ export function ReservationListPage() {
   const lastAppliedKeyword = useRef(search.keyword)
 
   const { status, result, appliedSearch, errorMessage, retry } = useReservationList(search)
+  const { overrides } = useStatusOverrides()
+
+  // 詳細画面から一覧へ戻る際に検索条件を復元できるよう、現在の条件を引き渡す。
+  const detailSearch = useMemo(() => toDetailSearch(searchParams.toString()), [searchParams])
 
   /**
    * 検索条件を更新する。絞り込みの変更およびページ遷移は履歴へ積む。
@@ -265,10 +274,17 @@ export function ReservationListPage() {
                 : items.map((reservation) => (
                     <tr key={reservation.id}>
                       <td>
-                        <Link to={`/reservations/${reservation.id}`}>{reservation.date}</Link>
+                        <Link
+                          to={{
+                            pathname: `/reservations/${reservation.id}`,
+                            search: detailSearch,
+                          }}
+                        >
+                          {reservation.date}
+                        </Link>
                       </td>
                       <td>{studioName(reservation.studioId)}</td>
-                      <td>{RESERVATION_STATUS_LABELS[reservation.status]}</td>
+                      <td>{RESERVATION_STATUS_LABELS[effectiveStatus(reservation, overrides)]}</td>
                       <td>{formatTimeRange(reservation)}</td>
                       <td>{reservation.customerName}</td>
                       <td>{reservation.purpose}</td>

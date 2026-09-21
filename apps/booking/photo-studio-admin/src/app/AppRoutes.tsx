@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router-dom'
+import { ReservationStatusOverridesProvider } from '../features/reservations/statusOverrides'
 import { Layout } from './Layout'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { ReservationDetailPage } from '../pages/ReservationDetailPage'
@@ -6,12 +7,14 @@ import { ReservationListPage } from '../pages/ReservationListPage'
 
 export function AppRoutes() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<ReservationListPage />} />
-        <Route path="reservations/:reservationId" element={<ReservationDetailPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
-    </Routes>
+    <ReservationStatusOverridesProvider>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<ReservationListPage />} />
+          <Route path="reservations/:reservationId" element={<ReservationDetailPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </ReservationStatusOverridesProvider>
   )
 }

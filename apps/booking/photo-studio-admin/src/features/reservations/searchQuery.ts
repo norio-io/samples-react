@@ -143,3 +143,24 @@ export function toggleSort(search: ReservationSearch, field: ListSortField): Res
   const order: SortDirection = search.sort === field && search.order === 'asc' ? 'desc' : 'asc'
   return { ...search, sort: field, order, page: DEFAULT_SEARCH.page }
 }
+
+/** 詳細画面へ引き渡す、一覧の検索条件を保持するパラメータ名。 */
+export const LIST_RETURN_PARAM = 'list'
+
+/** 一覧の検索条件を、詳細画面のクエリ文字列（先頭の ? を含む）へ変換する。 */
+export function toDetailSearch(listSearch: string): string {
+  if (listSearch === '') return ''
+  const params = new URLSearchParams()
+  params.set(LIST_RETURN_PARAM, listSearch)
+  return `?${params.toString()}`
+}
+
+/**
+ * 詳細画面のクエリから、戻り先の一覧の検索条件を取り出す。
+ * 不正な値が含まれていても一覧が壊れないよう、検索条件として解釈し直す。
+ */
+export function readListSearch(params: URLSearchParams): string {
+  const raw = params.get(LIST_RETURN_PARAM)
+  if (raw === null || raw === '') return ''
+  return toSearchParams(parseSearch(new URLSearchParams(raw))).toString()
+}

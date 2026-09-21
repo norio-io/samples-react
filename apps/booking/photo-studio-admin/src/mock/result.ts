@@ -6,6 +6,8 @@ export type ApiErrorCode =
   | 'NOT_FOUND'
   /** 同一スタジオ・同一時間帯の予約が既に存在する */
   | 'DUPLICATED'
+  /** 遷移規則で認められていないステータスの変更 */
+  | 'INVALID_TRANSITION'
   /** 通信障害を模した一時的な失敗 */
   | 'TEMPORARY_FAILURE'
 
