@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ReservationDraft } from '../domain/types'
+import { RESERVATION_STATUSES, type ReservationDraft } from '../domain/types'
 import {
   createReservation,
   DEFAULT_PER_PAGE,
@@ -81,10 +81,17 @@ describe('listReservations', () => {
   })
 
   it('スタジオで絞り込む', async () => {
-    const { items, total } = await listAll({ studioId: 'studio-b' })
+    const { items, total } = await listAll({ studioIds: ['studio-b'] })
     expect(total).toBeGreaterThan(0)
     expect(total).toBeLessThan(SEED_RESERVATION_COUNT)
     expect(items.every((item) => item.studioId === 'studio-b')).toBe(true)
+  })
+
+  it('スタジオを複数指定して絞り込む', async () => {
+    const { items, total } = await listAll({ studioIds: ['studio-a', 'studio-h'] })
+    expect(total).toBeGreaterThan(0)
+    expect(total).toBeLessThan(SEED_RESERVATION_COUNT)
+    expect(items.every((item) => item.studioId !== 'studio-b')).toBe(true)
   })
 
   it('ステータスで絞り込む', async () => {
@@ -117,7 +124,7 @@ describe('listReservations', () => {
   })
 
   it('絞り込み条件を併用できる', async () => {
-    const { items } = await listAll({ studioId: 'studio-a', statuses: ['completed'] })
+    const { items } = await listAll({ studioIds: ['studio-a'], statuses: ['completed'] })
     expect(items.every((item) => item.studioId === 'studio-a' && item.status === 'completed')).toBe(
       true,
     )
@@ -129,6 +136,17 @@ describe('listReservations', () => {
     const ascDates = asc.items.map((item) => item.date)
     expect([...ascDates].sort()).toEqual(ascDates)
     expect(desc.items[0]?.date).toBe(ascDates[ascDates.length - 1])
+  })
+
+  it('スタジオおよびステータスの定義順で並び替える', async () => {
+    const byStudio = await listAll({ sort: { field: 'studio', direction: 'asc' } })
+    const studioOrder = STUDIOS.map((studio) => studio.id)
+    const ranks = byStudio.items.map((item) => studioOrder.indexOf(item.studioId))
+    expect([...ranks].sort((a, b) => a - b)).toEqual(ranks)
+
+    const byStatus = await listAll({ sort: { field: 'status', direction: 'asc' } })
+    const statusRanks = byStatus.items.map((item) => RESERVATION_STATUSES.indexOf(item.status))
+    expect([...statusRanks].sort((a, b) => a - b)).toEqual(statusRanks)
   })
 
   it('顧客名で並び替える', async () => {
