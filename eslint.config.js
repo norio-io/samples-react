@@ -24,6 +24,16 @@ export default tseslint.config(
     },
   },
   {
+    // モジュール拡張の宣言ファイルでは、既存の型を継承するだけの空のインターフェースを用いる。
+    files: ['**/*.d.ts'],
+    rules: {
+      '@typescript-eslint/no-empty-object-type': [
+        'error',
+        { allowInterfaces: 'with-single-extends' },
+      ],
+    },
+  },
+  {
     files: ['**/*.{js,mjs}'],
     extends: [js.configs.recommended],
     languageOptions: {
