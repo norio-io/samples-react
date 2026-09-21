@@ -1,9 +1,15 @@
-import type { Reservation, ReservationDraft, ReservationStatus, Studio } from '../domain/types'
+import {
+  RESERVATION_STATUSES,
+  type Reservation,
+  type ReservationDraft,
+  type ReservationStatus,
+  type Studio,
+} from '../domain/types'
 import { delay, shouldFailMutation } from './config'
 import { fail, ok, type Result } from './result'
 import { createSeedReservations, STUDIOS } from './seed'
 
-export type ReservationSortField = 'date' | 'createdAt' | 'customerName'
+export type ReservationSortField = 'date' | 'studio' | 'status' | 'customerName' | 'createdAt'
 export type SortDirection = 'asc' | 'desc'
 
 export interface ReservationSort {
@@ -12,7 +18,8 @@ export interface ReservationSort {
 }
 
 export interface ReservationListQuery {
-  studioId?: string
+  /** 指定がない場合はすべてのスタジオを対象とする。 */
+  studioIds?: readonly string[]
   /** 指定がない場合はすべてのステータスを対象とする。 */
   statuses?: readonly ReservationStatus[]
   /** YYYY-MM-DD。指定日を含む。 */
@@ -52,7 +59,9 @@ function clone(reservation: Reservation): Reservation {
 }
 
 function matches(reservation: Reservation, query: ReservationListQuery): boolean {
-  if (query.studioId !== undefined && reservation.studioId !== query.studioId) return false
+  if (query.studioIds !== undefined && query.studioIds.length > 0) {
+    if (!query.studioIds.includes(reservation.studioId)) return false
+  }
   if (query.statuses !== undefined && query.statuses.length > 0) {
     if (!query.statuses.includes(reservation.status)) return false
   }
@@ -73,11 +82,26 @@ function matches(reservation: Reservation, query: ReservationListQuery): boolean
   return true
 }
 
+/** スタジオおよびステータスは、定義された並び順を序列として用いる。 */
+function studioRank(studioId: string): number {
+  const index = STUDIOS.findIndex((studio) => studio.id === studioId)
+  return index < 0 ? STUDIOS.length : index
+}
+
+function statusRank(status: ReservationStatus): number {
+  const index = RESERVATION_STATUSES.indexOf(status)
+  return index < 0 ? RESERVATION_STATUSES.length : index
+}
+
 function compare(a: Reservation, b: Reservation, sort: ReservationSort): number {
   const order = sort.direction === 'desc' ? -1 : 1
   let result = 0
   if (sort.field === 'date') {
     result = a.date.localeCompare(b.date) || a.startHour - b.startHour
+  } else if (sort.field === 'studio') {
+    result = studioRank(a.studioId) - studioRank(b.studioId)
+  } else if (sort.field === 'status') {
+    result = statusRank(a.status) - statusRank(b.status)
   } else if (sort.field === 'createdAt') {
     result = a.createdAt.localeCompare(b.createdAt)
   } else {
