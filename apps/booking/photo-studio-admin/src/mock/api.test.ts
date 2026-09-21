@@ -265,6 +265,41 @@ describe('createReservation', () => {
     expect(another.ok).toBe(true)
   })
 
+  it('隣接する時間帯は重複と見なさない', async () => {
+    const first = await settle(createReservation({ ...DRAFT, startHour: 9, hours: 2 }))
+    expect(first.ok).toBe(true)
+
+    // 9-11 と 11-13 は重ならない。
+    const adjacent = await settle(createReservation({ ...DRAFT, startHour: 11, hours: 2 }))
+    expect(adjacent.ok).toBe(true)
+  })
+
+  it('1時間でも重なる場合は、重なっている既存の予約を返す', async () => {
+    const created = await settle(createReservation({ ...DRAFT, startHour: 9, hours: 2 }))
+    expect(created.ok).toBe(true)
+    if (!created.ok) return
+
+    const duplicated = await settle(createReservation({ ...DRAFT, startHour: 10, hours: 3 }))
+    expect(duplicated.ok).toBe(false)
+    if (duplicated.ok) return
+    expect(duplicated.error.code).toBe('DUPLICATED')
+    expect(duplicated.error.conflicts?.map((item) => item.id)).toEqual([created.value.id])
+  })
+
+  it('キャンセル済みの予約は重複と見なさない', async () => {
+    const created = await settle(createReservation(DRAFT))
+    expect(created.ok).toBe(true)
+    if (!created.ok) return
+
+    const blocked = await settle(createReservation(DRAFT))
+    expect(blocked.ok).toBe(false)
+
+    await settle(updateReservationStatus(created.value.id, 'cancelled'))
+
+    const retried = await settle(createReservation(DRAFT))
+    expect(retried.ok).toBe(true)
+  })
+
   it('失敗確率を 1 に固定すると失敗結果を返し、件数が増えない', async () => {
     setMutationFailureRate(1)
     const result = await settle(createReservation(DRAFT))

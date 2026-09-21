@@ -190,15 +190,19 @@ export async function createReservation(draft: ReservationDraft): Promise<Result
     return fail('TEMPORARY_FAILURE', '予約を登録できませんでした。再度お試しください。')
   }
 
-  const duplicated = reservations.some(
+  // 重複判定は画面側の検証に依存せず、ここでも必ず行う。
+  // キャンセル済みの予約は重複と見なさない。
+  const conflicts = reservations.filter(
     (reservation) =>
       reservation.status !== 'cancelled' &&
       reservation.studioId === draft.studioId &&
       reservation.date === draft.date &&
       overlaps(reservation, draft),
   )
-  if (duplicated) {
-    return fail('DUPLICATED', '指定の日時は既に予約されています。')
+  if (conflicts.length > 0) {
+    return fail('DUPLICATED', '指定の日時は既に予約されています。', {
+      conflicts: conflicts.map(clone),
+    })
   }
 
   const created: Reservation = {

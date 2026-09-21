@@ -143,7 +143,12 @@ export function ReservationListPage() {
 
   return (
     <section className="list">
-      <h1>予約一覧</h1>
+      <div className="list__header">
+        <h1>予約一覧</h1>
+        <Link className="list__create" to="/reservations/new">
+          予約を登録する
+        </Link>
+      </div>
 
       <form className="filters" onSubmit={(event) => event.preventDefault()}>
         <div className="filters__row">
