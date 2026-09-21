@@ -143,7 +143,7 @@ describe('ReservationListPage', () => {
     await waitFor(() => expect(window.location.search).toBe(''))
   })
 
-  it('顧客名の入力では打鍵ごとに履歴を積まない', async () => {
+  it('キーワードの入力では打鍵ごとに履歴を積まない', async () => {
     const user = userEvent.setup()
     renderAt('/')
     await findRows()
@@ -152,7 +152,7 @@ describe('ReservationListPage', () => {
     await user.click(screen.getByRole('button', { name: /スタジオ/ }))
     await waitFor(() => expect(currentSearch().get('sort')).toBe('studio'))
 
-    await user.type(screen.getByLabelText('顧客名'), '相川')
+    await user.type(screen.getByLabelText('顧客名・連絡先・用途'), '相川')
     await waitFor(() => expect(currentSearch().get('q')).toBe('相川'), { timeout: 3000 })
 
     window.history.back()
@@ -161,12 +161,12 @@ describe('ReservationListPage', () => {
     await waitFor(() => expect(window.location.search).toBe(''), { timeout: 3000 })
   })
 
-  it('顧客名の入力が検索結果へ反映される', async () => {
+  it('キーワードの入力が検索結果へ反映される', async () => {
     const user = userEvent.setup()
     renderAt('/')
     await findRows()
 
-    await user.type(screen.getByLabelText('顧客名'), '商品撮影')
+    await user.type(screen.getByLabelText('顧客名・連絡先・用途'), '商品撮影')
     await waitFor(() => expect(currentSearch().get('q')).toBe('商品撮影'), { timeout: 3000 })
 
     await waitFor(() => {
@@ -175,6 +175,21 @@ describe('ReservationListPage', () => {
       for (const row of rows) {
         expect(cellsOf(row)[5]).toBe('商品撮影')
       }
+    })
+  })
+
+  it('キーワードは顧客名以外の項目でも引ける', async () => {
+    const user = userEvent.setup()
+    renderAt('/')
+    await findRows()
+
+    // 電話番号での検索。ラベルが示す対象と実際の絞り込みが一致していること。
+    await user.type(screen.getByLabelText('顧客名・連絡先・用途'), '090-0000-1000')
+    await waitFor(() => expect(currentSearch().get('q')).toBe('090-0000-1000'), { timeout: 3000 })
+
+    await waitFor(() => {
+      const rows = [...document.querySelectorAll('tbody tr')]
+      expect(rows).toHaveLength(1)
     })
   })
 

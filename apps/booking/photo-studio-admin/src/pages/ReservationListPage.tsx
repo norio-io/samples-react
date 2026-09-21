@@ -19,7 +19,7 @@ import {
   type ReservationSearch,
 } from '../features/reservations/searchQuery'
 
-/** 顧客名の入力を検索条件へ反映するまでの待ち時間（ms）。 */
+/** キーワード入力を検索条件へ反映するまでの待ち時間（ms）。 */
 const KEYWORD_DEBOUNCE_MS = 300
 
 function formatTimeRange(reservation: Reservation): string {
@@ -43,7 +43,7 @@ export function ReservationListPage() {
 
   /**
    * 検索条件を更新する。絞り込みの変更およびページ遷移は履歴へ積む。
-   * 顧客名の入力のみ replace とし、打鍵ごとに履歴が積まないようにする。
+   * キーワードの入力のみ replace とし、打鍵ごとに履歴が積まないようにする。
    */
   const updateSearch = useCallback(
     (next: ReservationSearch, options?: { replace?: boolean }) => {
@@ -143,11 +143,11 @@ export function ReservationListPage() {
             />
           </label>
           <label className="field field--grow">
-            <span className="field__label">顧客名</span>
+            <span className="field__label">顧客名・連絡先・用途</span>
             <input
               type="search"
               value={keywordInput}
-              placeholder="顧客名・連絡先・用途"
+              placeholder="部分一致で検索"
               onChange={(event) => setKeywordInput(event.target.value)}
             />
           </label>

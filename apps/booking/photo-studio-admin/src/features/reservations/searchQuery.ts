@@ -25,6 +25,7 @@ export interface ReservationSearch {
   to: string
   studioIds: string[]
   statuses: ReservationStatus[]
+  /** 顧客名・電話番号・メールアドレス・利用目的を対象とした部分一致。 */
   keyword: string
   sort: ListSortField
   order: SortDirection
