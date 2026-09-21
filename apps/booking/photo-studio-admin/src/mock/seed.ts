@@ -107,7 +107,8 @@ export function createSeedReservations(): Reservation[] {
       startHour: 9 + ((index * 5) % 9),
       hours: 1 + (index % 4),
       customerName: `${pick(FAMILY_NAMES, index)} ${pick(GIVEN_NAMES, index + Math.floor(index / FAMILY_NAMES.length))}`,
-      customerTel: `090-0000-${String(1000 + index).padStart(4, '0')}`,
+      // 電話番号は数字のみを保存値とする。表示時に formatTel で整形する。
+      customerTel: `0900000${String(1000 + index).padStart(4, '0')}`,
       customerEmail: `guest${String(index + 1).padStart(3, '0')}@example.com`,
       purpose: pick(PURPOSES, index),
       status: statusOf(dayOffset, index),

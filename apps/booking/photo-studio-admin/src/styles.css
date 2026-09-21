@@ -289,3 +289,71 @@ a {
   margin: 0;
   font-size: 1rem;
 }
+
+.list__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.list__create {
+  font-size: 0.9rem;
+}
+
+.create__hint {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.create__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 28rem;
+}
+
+.create__form select,
+.create__form textarea {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.field__error {
+  font-size: 0.8rem;
+}
+
+.create__form [aria-invalid='true'] {
+  border-color: currentColor;
+  outline: 1px solid currentColor;
+}
+
+.create__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.create__actions button {
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.create__actions button:disabled {
+  color: var(--color-muted);
+  cursor: default;
+}
+
+.field__required {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font-size: 0.7rem;
+}
