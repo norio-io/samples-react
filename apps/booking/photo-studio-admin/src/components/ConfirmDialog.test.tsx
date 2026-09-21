@@ -107,6 +107,46 @@ describe('ConfirmDialog', () => {
     expect(onConfirm).not.toHaveBeenCalled()
   })
 
+  it('焦点を戻す時点で背面の不活性化が解除されている', async () => {
+    const user = userEvent.setup()
+    render(<Host />)
+
+    const trigger = screen.getByRole('button', { name: '開く' })
+    await user.click(trigger)
+
+    // 焦点の復帰が行われた時点の背面の状態を記録する。
+    // inert の内側の要素は焦点を受け取れないため、解除が先でなければならない。
+    let inertAtFocus: string | null = 'not called'
+    vi.spyOn(trigger, 'focus').mockImplementation(function (this: HTMLElement) {
+      inertAtFocus = document.getElementById(APP_CONTENT_ID)?.getAttribute('inert') ?? null
+      HTMLElement.prototype.focus.call(this)
+    })
+
+    await user.keyboard('{Escape}')
+
+    expect(inertAtFocus).toBeNull()
+    expect(trigger).toHaveFocus()
+  })
+
+  it('代わりの移動先へ移す場合も背面の不活性化が先に解除される', async () => {
+    const user = userEvent.setup()
+    render(<Host removeTriggerOnConfirm />)
+
+    await user.click(screen.getByRole('button', { name: '開く' }))
+
+    const fallback = screen.getByText('通知領域')
+    let inertAtFocus: string | null = 'not called'
+    vi.spyOn(fallback, 'focus').mockImplementation(function (this: HTMLElement) {
+      inertAtFocus = document.getElementById(APP_CONTENT_ID)?.getAttribute('inert') ?? null
+      HTMLElement.prototype.focus.call(this)
+    })
+
+    await user.keyboard('{Enter}')
+
+    expect(inertAtFocus).toBeNull()
+    expect(fallback).toHaveFocus()
+  })
+
   it('確認の操作を実行できる', async () => {
     const user = userEvent.setup()
     const onConfirm = vi.fn()

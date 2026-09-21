@@ -40,33 +40,37 @@ export function ConfirmDialog({
   const dialogRef = useRef<HTMLDivElement | null>(null)
   const confirmRef = useRef<HTMLButtonElement | null>(null)
 
-  // 開いた際に確認の操作へ焦点を移し、閉じた際は呼び出し元へ戻す。
-  // 操作の結果として呼び出し元が取り除かれている場合は、焦点が body へ
-  // 外れてしまうため、代わりの移動先へ移す。
   const fallbackRef = useRef(fallbackFocusRef)
   fallbackRef.current = fallbackFocusRef
 
+  /**
+   * 背面の不活性化と焦点の制御。
+   *
+   * 後始末は宣言の順に実行されるため、別々の副作用に分けると背面へ
+   * `inert` が残ったまま焦点を戻すことになり、`inert` の内側の要素は焦点を
+   * 受け取れないため焦点が body へ外れる。順序を明示するため一つにまとめ、
+   * 不活性化の解除を焦点の復帰より先に行う。
+   */
   useEffect(() => {
     const previous = document.activeElement
+    const content = document.getElementById(APP_CONTENT_ID)
+
+    content?.setAttribute('inert', '')
+    content?.setAttribute('aria-hidden', 'true')
     confirmRef.current?.focus()
+
     return () => {
+      // 焦点を戻す前に背面を通常の状態へ戻す。
+      content?.removeAttribute('inert')
+      content?.removeAttribute('aria-hidden')
+
+      // 操作の結果として呼び出し元が取り除かれている場合は、
+      // 代わりの移動先へ移す。
       if (previous instanceof HTMLElement && previous.isConnected) {
         previous.focus()
         return
       }
       fallbackRef.current?.current?.focus()
-    }
-  }, [])
-
-  // 背面を操作・読み上げの対象から外す。
-  useEffect(() => {
-    const content = document.getElementById(APP_CONTENT_ID)
-    if (content === null) return
-    content.setAttribute('inert', '')
-    content.setAttribute('aria-hidden', 'true')
-    return () => {
-      content.removeAttribute('inert')
-      content.removeAttribute('aria-hidden')
     }
   }, [])
 
