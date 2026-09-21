@@ -1,10 +1,12 @@
 import {
   RESERVATION_STATUSES,
+  RESERVATION_STATUS_LABELS,
   type Reservation,
   type ReservationDraft,
   type ReservationStatus,
   type Studio,
 } from '../domain/types'
+import { canTransition } from '../domain/statusTransitions'
 import { delay, shouldFailMutation } from './config'
 import { fail, ok, type Result } from './result'
 import { createSeedReservations, STUDIOS } from './seed'
@@ -165,6 +167,14 @@ export async function updateReservationStatus(
   const current = reservations[index]
   if (index < 0 || current === undefined) {
     return fail('NOT_FOUND', `予約が見つかりません: ${id}`)
+  }
+
+  // 遷移規則は画面と共通の定義を参照する。
+  if (!canTransition(current.status, status)) {
+    return fail(
+      'INVALID_TRANSITION',
+      `${RESERVATION_STATUS_LABELS[current.status]}から${RESERVATION_STATUS_LABELS[status]}への変更は認められていません。`,
+    )
   }
 
   const updated: Reservation = { ...current, status }

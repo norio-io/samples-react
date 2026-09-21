@@ -17,10 +17,10 @@ describe('AppRoutes', () => {
     expect(screen.getByRole('heading', { name: '予約一覧' })).toBeInTheDocument()
   })
 
-  it('予約詳細のパスを解決する', () => {
+  it('予約詳細のパスを解決する', async () => {
     renderAt('/reservations/rsv-001')
-    expect(screen.getByRole('heading', { name: '予約詳細' })).toBeInTheDocument()
-    expect(screen.getByText(/rsv-001/)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '予約詳細' })).toBeInTheDocument()
+    expect(screen.getByText('rsv-001')).toBeInTheDocument()
   })
 
   it('未定義のパスでは案内を表示する', () => {

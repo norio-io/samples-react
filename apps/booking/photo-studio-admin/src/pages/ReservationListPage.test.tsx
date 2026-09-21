@@ -3,13 +3,16 @@ import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resetMockStore } from '../mock/api'
+import { ReservationStatusOverridesProvider } from '../features/reservations/statusOverrides'
 import { ReservationListPage } from './ReservationListPage'
 
 function renderAt(path: string) {
   window.history.pushState({}, '', path)
   return render(
     <BrowserRouter>
-      <ReservationListPage />
+      <ReservationStatusOverridesProvider>
+        <ReservationListPage />
+      </ReservationStatusOverridesProvider>
     </BrowserRouter>,
   )
 }

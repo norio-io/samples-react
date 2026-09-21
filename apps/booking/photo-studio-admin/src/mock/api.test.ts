@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { RESERVATION_STATUSES, type ReservationDraft } from '../domain/types'
+import {
+  RESERVATION_STATUSES,
+  type ReservationDraft,
+  type ReservationStatus,
+} from '../domain/types'
 import {
   createReservation,
   DEFAULT_PER_PAGE,
@@ -11,7 +15,7 @@ import {
   type ReservationListQuery,
 } from './api'
 import { resetMutationFailureRate, setMutationFailureRate } from './config'
-import { SEED_ANCHOR_DATE, SEED_RESERVATION_COUNT, STUDIOS } from './seed'
+import { createSeedReservations, SEED_ANCHOR_DATE, SEED_RESERVATION_COUNT, STUDIOS } from './seed'
 
 /** 応答遅延をタイマーごと進め、結果を取り出す。 */
 async function settle<T>(promise: Promise<T>): Promise<T> {
@@ -179,14 +183,35 @@ describe('getReservation', () => {
 })
 
 describe('updateReservationStatus', () => {
-  it('ステータスを更新する', async () => {
-    const result = await settle(updateReservationStatus('rsv-001', 'cancelled'))
+  /** 指定のステータスを持つ初期データの id を返す。 */
+  function idOfStatus(status: ReservationStatus): string {
+    const found = createSeedReservations().find((reservation) => reservation.status === status)
+    if (found === undefined) throw new Error(`初期データに ${status} の予約がありません`)
+    return found.id
+  }
+
+  it('遷移規則で認められたステータスへ更新する', async () => {
+    const id = idOfStatus('tentative')
+    const result = await settle(updateReservationStatus(id, 'confirmed'))
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.status).toBe('cancelled')
+    expect(result.value.status).toBe('confirmed')
 
-    const reloaded = await settle(getReservation('rsv-001'))
-    expect(reloaded.ok && reloaded.value.status).toBe('cancelled')
+    const reloaded = await settle(getReservation(id))
+    expect(reloaded.ok && reloaded.value.status).toBe('confirmed')
+  })
+
+  it('遷移規則で認められていない変更は INVALID_TRANSITION を返す', async () => {
+    const id = idOfStatus('completed')
+    const result = await settle(updateReservationStatus(id, 'confirmed'))
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error.code).toBe('INVALID_TRANSITION')
+    // 文言は内部の識別子ではなく利用者向けの表記とする。
+    expect(result.error.message).toBe('完了から確定への変更は認められていません。')
+
+    const reloaded = await settle(getReservation(id))
+    expect(reloaded.ok && reloaded.value.status).toBe('completed')
   })
 
   it('失敗確率を 1 に固定すると、例外ではなく失敗結果を返し、データを変更しない', async () => {
@@ -194,6 +219,7 @@ describe('updateReservationStatus', () => {
     setMutationFailureRate(1)
 
     const result = await settle(updateReservationStatus('rsv-002', 'cancelled'))
+    // 失敗は遷移規則の判定よりも先に返る。
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('TEMPORARY_FAILURE')
