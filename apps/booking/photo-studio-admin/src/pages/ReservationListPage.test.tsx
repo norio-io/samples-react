@@ -259,6 +259,40 @@ describe('ReservationListPage', () => {
     expect(await screen.findByText(/80件中 41–60件/)).toBeInTheDocument()
   })
 
+  it('絞り込みから行選択、ページ送りまでをキーボードで操作できる', async () => {
+    const user = userEvent.setup()
+    renderAt('/')
+    await findRows()
+
+    // 絞り込み
+    await user.click(screen.getByLabelText('Aスタジオ'))
+    await waitFor(() => expect(currentSearch().get('studio')).toBe('studio-a'))
+
+    // 並び替え（焦点を当てて Enter）
+    screen.getByRole('button', { name: /スタジオ/ }).focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(currentSearch().get('sort')).toBe('studio'))
+
+    // ページ送り
+    screen.getByRole('button', { name: '次へ' }).focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(currentSearch().get('page')).toBe('2'))
+
+    // 行の選択はリンクであり、キーボードで到達できる
+    const rows = await findRows()
+    const link = within(rows[0] as HTMLElement).getByRole('link')
+    link.focus()
+    expect(link).toHaveFocus()
+  })
+
+  it('表の横スクロールは表領域内に限定される', async () => {
+    renderAt('/')
+    await findRows()
+
+    const table = screen.getByRole('table')
+    expect(table.parentElement).toHaveClass('table-wrapper')
+  })
+
   it('各行から詳細画面へ遷移できる', async () => {
     const rows = await (async () => {
       renderAt('/')

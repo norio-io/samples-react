@@ -106,6 +106,16 @@ describe('ReservationDetailPage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('更新の完了が支援技術へ通知される', async () => {
+    const user = userEvent.setup()
+    renderAt(`/reservations/${idOfStatus('tentative')}`)
+
+    await user.click(await screen.findByRole('button', { name: '確定する' }))
+
+    const notice = await screen.findByRole('status')
+    await waitFor(() => expect(notice).toHaveTextContent('ステータスを確定に変更しました。'))
+  })
+
   it('失敗した更新は直前の状態へ復元し、同一画面で通知する', async () => {
     const user = userEvent.setup()
     setMutationFailureRate(1)
@@ -145,6 +155,8 @@ describe('ReservationDetailPage', () => {
     // 楽観的更新のため表示は即座に変わる。後続のテストへ影響しないよう、
     // 応答が確定するまで待つ。
     await waitFor(() => expect(statusText()).toContain('キャンセル'))
+    // キャンセルは終端であり操作ボタンが消えるため、焦点は通知領域へ移る。
+    expect(screen.getByRole('status')).toHaveFocus()
     await waitFor(() => expect(screen.queryByText('更新中…')).not.toBeInTheDocument())
   })
 

@@ -249,54 +249,56 @@ export function ReservationListPage() {
         </div>
       ) : (
         <>
-          <table className="table" aria-busy={isInitialLoading || isRefreshing}>
-            <thead>
-              <tr>
-                {LIST_SORT_FIELDS.map((field) => (
-                  <SortableHeader
-                    key={field}
-                    field={field}
-                    search={search}
-                    onToggle={() => updateSearch(toggleSort(search, field))}
-                  />
-                ))}
-                <th scope="col">時間帯</th>
-                <th scope="col">顧客名</th>
-                <th scope="col">用途</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isInitialLoading
-                ? Array.from({ length: DEFAULT_PER_PAGE }, (_, index) => (
-                    <tr key={index} className="table__skeleton" aria-hidden="true">
-                      {Array.from({ length: COLUMN_COUNT }, (_, cellIndex) => (
-                        <td key={cellIndex}>
-                          <span className="skeleton" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                : items.map((reservation) => (
-                    <tr key={reservation.id}>
-                      <td>
-                        <Link
-                          to={{
-                            pathname: `/reservations/${reservation.id}`,
-                            search: detailSearch,
-                          }}
-                        >
-                          {reservation.date}
-                        </Link>
-                      </td>
-                      <td>{studioName(reservation.studioId)}</td>
-                      <td>{RESERVATION_STATUS_LABELS[effectiveStatus(reservation, overrides)]}</td>
-                      <td>{formatTimeRange(reservation)}</td>
-                      <td>{reservation.customerName}</td>
-                      <td>{reservation.purpose}</td>
-                    </tr>
+          <div className="table-wrapper">
+            <table className="table" aria-busy={isInitialLoading || isRefreshing}>
+              <thead>
+                <tr>
+                  {LIST_SORT_FIELDS.map((field) => (
+                    <SortableHeader
+                      key={field}
+                      field={field}
+                      search={search}
+                      onToggle={() => updateSearch(toggleSort(search, field))}
+                    />
                   ))}
-            </tbody>
-          </table>
+                  <th scope="col">時間帯</th>
+                  <th scope="col">顧客名</th>
+                  <th scope="col">用途</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isInitialLoading
+                  ? Array.from({ length: DEFAULT_PER_PAGE }, (_, index) => (
+                      <tr key={index} className="table__skeleton" aria-hidden="true">
+                        {Array.from({ length: COLUMN_COUNT }, (_, cellIndex) => (
+                          <td key={cellIndex}>
+                            <span className="skeleton" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  : items.map((reservation) => (
+                      <tr key={reservation.id}>
+                        <td>
+                          <Link
+                            to={{
+                              pathname: `/reservations/${reservation.id}`,
+                              search: detailSearch,
+                            }}
+                          >
+                            {reservation.date}
+                          </Link>
+                        </td>
+                        <td>{studioName(reservation.studioId)}</td>
+                        <td>{RESERVATION_STATUS_LABELS[effectiveStatus(reservation, overrides)]}</td>
+                        <td>{formatTimeRange(reservation)}</td>
+                        <td>{reservation.customerName}</td>
+                        <td>{reservation.purpose}</td>
+                      </tr>
+                    ))}
+              </tbody>
+            </table>
+          </div>
 
           {isEmpty && (
             <div className="notice">
