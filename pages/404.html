@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ページが見つかりません | samples-react</title>
+    <script>
+      // GitHub Pages はパスの書き換えに対応しないため、物理ファイルの存在しない
+      // 要求はすべて 404 となる。要求されたパスをクエリ文字列へ退避したうえで
+      // サンプル直下の index.html へ引き渡し、読み込み後に history API で復元する。
+      // 保持するセグメント数はリポジトリ名 + <制作種別> + <業種の抽象名> の 3 とする。
+      ;(function (l) {
+        var SEGMENTS_TO_KEEP = 3
+        var segments = l.pathname.split('/').slice(1)
+        if (segments.length <= SEGMENTS_TO_KEEP) {
+          // サンプルの基点そのものが存在しない場合は、案内を表示して転送しない。
+          return
+        }
+        var base = '/' + segments.slice(0, SEGMENTS_TO_KEEP).join('/') + '/'
+        var rest = segments.slice(SEGMENTS_TO_KEEP).join('/')
+        l.replace(
+          l.origin +
+            base +
+            '?/' +
+            rest.replace(/&/g, '~and~') +
+            (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+            l.hash,
+        )
+      })(window.location)
+    </script>
+  </head>
+  <body>
+    <h1>ページが見つかりません</h1>
+    <p><a href="/samples-react/">samples-react のトップへ</a></p>
+  </body>
+</html>
