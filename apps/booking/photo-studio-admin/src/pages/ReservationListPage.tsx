@@ -151,25 +151,46 @@ export function ReservationListPage() {
   const lastIndex = total === 0 ? 0 : firstIndex + items.length - 1
 
   // 適用中の条件。折りたたんだ条件も含め、件数の近くで一覧できるようにする。
-  const appliedLabels: string[] = []
+  // 表示名は重なりうるため、鍵は条件の種別と値から組み立てる。
+  const appliedConditions: { key: string; label: string }[] = []
   if (search.from !== '' || search.to !== '') {
-    appliedLabels.push(`期間 ${search.from === '' ? '指定なし' : search.from}〜${search.to === '' ? '指定なし' : search.to}`)
+    const from = search.from === '' ? '指定なし' : search.from
+    const to = search.to === '' ? '指定なし' : search.to
+    appliedConditions.push({ key: 'period', label: `期間 ${from}〜${to}` })
   }
-  for (const studioId of search.studioIds) appliedLabels.push(studioName(studioId))
-  for (const value of search.statuses) appliedLabels.push(RESERVATION_STATUS_LABELS[value])
-  if (search.keyword !== '') appliedLabels.push(`「${search.keyword}」`)
+  for (const studioId of search.studioIds) {
+    appliedConditions.push({ key: `studio:${studioId}`, label: studioName(studioId) })
+  }
+  for (const value of search.statuses) {
+    appliedConditions.push({ key: `status:${value}`, label: RESERVATION_STATUS_LABELS[value] })
+  }
+  if (search.keyword !== '') {
+    appliedConditions.push({ key: 'keyword', label: `「${search.keyword}」` })
+  }
 
   const resetSearch = () => {
     setKeywordInput(DEFAULT_SEARCH.keyword)
     updateSearch(DEFAULT_SEARCH)
   }
 
-  /**
-   * 行全体を詳細への導線とする。
-   * 日付セルのリンクが処理した場合は既定の動作が止められているため、二重に遷移しない。
-   */
   const openDetail = (reservationId: string) => {
     navigate({ pathname: `/reservations/${reservationId}`, search: detailSearch })
+  }
+
+  /**
+   * 行全体を詳細への導線とする。次の場合は遷移させず、既定の動作へ委ねる。
+   *
+   * - 日付セルのリンクが処理した場合（既定の動作が止められている）
+   * - 修飾キーまたは主ボタン以外を伴う場合。リンクは新しいタブで開く意図を
+   *   ブラウザへ委ねるため preventDefault を呼ばず、そのままでは現在のタブも遷移する
+   * - 文字を選択した直後の場合。選択のためのドラッグでも click は発生する
+   */
+  const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>, reservationId: string) => {
+    if (event.defaultPrevented) return
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+    if (event.button !== 0) return
+    if (window.getSelection()?.isCollapsed === false) return
+    openDetail(reservationId)
   }
 
   return (
@@ -304,12 +325,12 @@ export function ReservationListPage() {
             </>
           )}
         </p>
-        {appliedLabels.length > 0 && (
+        {appliedConditions.length > 0 && (
           <p className="chips">
             <span className="chips__legend">適用中の条件</span>
-            {appliedLabels.map((label) => (
-              <span className="chip" key={label}>
-                {label}
+            {appliedConditions.map((condition) => (
+              <span className="chip" key={condition.key}>
+                {condition.label}
               </span>
             ))}
           </p>
@@ -358,10 +379,7 @@ export function ReservationListPage() {
                       <tr
                         key={reservation.id}
                         className="table__row"
-                        onClick={(event) => {
-                          if (event.defaultPrevented) return
-                          openDetail(reservation.id)
-                        }}
+                        onClick={(event) => handleRowClick(event, reservation.id)}
                       >
                         <td>
                           <Link

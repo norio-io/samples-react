@@ -22,10 +22,19 @@
   --surface-alt: #f5f6f7;
   --line-strong: #cdd1d5;
 
-  /* 状態の淡色。バッジの地として用い、文字色との対比を確保する。 */
+  /* 状態の淡色。バッジの地として用いる。 */
   --ok-l: #e7f2ec;
   --warn-l: #fbf3e4;
   --ng-l: #fbeae8;
+
+  /*
+   * 状態の濃色。淡色の地に載せる文字へ用いる。
+   * 素の --ok / --warn / --ng は淡色の地に対して WCAG AA（4.5:1）へ届かないため、
+   * 色相を保ったまま明度を下げた派生を持つ。比は styles.contrast.test.ts で検証する。
+   */
+  --ok-d: #276a4d;
+  --warn-d: #82591b;
+  --ng-d: #a33f36;
 
   --radius: 6px;
   --radius-sm: 4px;
@@ -341,7 +350,7 @@ input[type='tel'] {
 
 .filters__dash {
   padding-bottom: 0.45rem;
-  color: var(--faint);
+  color: var(--gray);
 }
 
 .filters__tools {
@@ -434,7 +443,7 @@ input[type='tel'] {
 
 .chips__legend {
   font-size: 0.75rem;
-  color: var(--faint);
+  color: var(--gray);
 }
 
 .chip {
@@ -560,7 +569,7 @@ input[type='tel'] {
 
 .badge--tentative {
   background-color: var(--warn-l);
-  color: var(--warn);
+  color: var(--warn-d);
 }
 
 .badge--confirmed {
@@ -570,12 +579,12 @@ input[type='tel'] {
 
 .badge--completed {
   background-color: var(--ok-l);
-  color: var(--ok);
+  color: var(--ok-d);
 }
 
 .badge--cancelled {
   background-color: var(--ng-l);
-  color: var(--ng);
+  color: var(--ng-d);
 }
 
 /* ------------------------------------------------------------ 通知 */
@@ -588,7 +597,7 @@ input[type='tel'] {
   margin-top: 1rem;
   padding: 1rem 1.25rem;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--warn);
+  border-left: 3px solid var(--warn-d);
   border-radius: var(--radius);
   background-color: var(--surface);
   font-size: 0.875rem;
@@ -698,7 +707,7 @@ input[type='tel'] {
   border-radius: var(--radius-sm);
   background-color: var(--ng-l);
   font-size: 0.875rem;
-  color: var(--ng);
+  color: var(--ng-d);
 }
 
 .detail__hint {

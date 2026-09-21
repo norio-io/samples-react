@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -351,8 +351,9 @@ describe('ReservationListPage', () => {
 
   it('日付のリンクに加えて行全体が詳細への導線となる', async () => {
     const user = userEvent.setup()
+    // 検索条件を持つ状態で確かめる。行の導線もリンクと同じ条件を引き渡す。
     const rows = await (async () => {
-      renderAt('/')
+      renderAt('/?status=confirmed')
       return findRows()
     })()
 
@@ -366,7 +367,57 @@ describe('ReservationListPage', () => {
 
     // リンク以外のセルを押しても詳細へ遷移する。
     await user.click(within(firstRow).getByText(/./, { selector: 'td:nth-child(5)' }))
-    await waitFor(() => expect(window.location.pathname).toBe(expected))
+    await waitFor(() =>
+      expect(`${window.location.pathname}${window.location.search}`).toBe(expected),
+    )
+  })
+
+  it('修飾キーを伴うクリックでは行の導線を働かせない', async () => {
+    const user = userEvent.setup()
+    const rows = await (async () => {
+      renderAt('/')
+      return findRows()
+    })()
+
+    const firstRow = rows[0]
+    expect(firstRow).toBeDefined()
+    if (firstRow === undefined) return
+    const cell = within(firstRow).getByText(/./, { selector: 'td:nth-child(5)' })
+
+    // 新しいタブで開く意図は既定の動作へ委ね、現在のタブは遷移させない。
+    for (const modifier of ['Meta', 'Control', 'Shift', 'Alt']) {
+      await user.keyboard(`{${modifier}>}`)
+      await user.click(cell)
+      await user.keyboard(`{/${modifier}}`)
+      expect(window.location.pathname).toBe('/')
+    }
+  })
+
+  it('文字を選択した直後のクリックでは行の導線を働かせない', async () => {
+    const rows = await (async () => {
+      renderAt('/')
+      return findRows()
+    })()
+
+    const firstRow = rows[0]
+    expect(firstRow).toBeDefined()
+    if (firstRow === undefined) return
+    const cell = within(firstRow).getByText(/./, { selector: 'td:nth-child(5)' })
+
+    // 顧客名のコピーなど、選択のためのドラッグでも、ボタンを離した時点で
+    // click が発生する。押下から始まる一連の操作では選択が解除されるため、
+    // 選択を保ったまま click のみを起こして再現する。
+    const range = document.createRange()
+    range.selectNodeContents(cell)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    expect(selection?.isCollapsed).toBe(false)
+
+    fireEvent.click(cell)
+    expect(window.location.pathname).toBe('/')
+
+    selection?.removeAllRanges()
   })
 
   it('各行から詳細画面へ遷移できる', async () => {
