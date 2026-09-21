@@ -1,8 +1,9 @@
 import { Link, Outlet } from 'react-router-dom'
+import { APP_CONTENT_ID } from '../components/ConfirmDialog'
 
 export function Layout() {
   return (
-    <div className="layout">
+    <div className="layout" id={APP_CONTENT_ID}>
       <header className="layout__header">
         <Link className="layout__brand" to="/">
           撮影スタジオ 予約管理

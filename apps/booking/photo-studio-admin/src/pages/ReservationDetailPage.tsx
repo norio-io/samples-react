@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import {
   isIrreversible,
   nextStatuses,
@@ -48,31 +49,12 @@ export function ReservationDetailPage() {
   const [updateErrorMessage, setUpdateErrorMessage] = useState('')
   /** 確認を求めている遷移先。 */
   const [confirmingStatus, setConfirmingStatus] = useState<ReservationStatus | null>(null)
-  const confirmButtonRef = useRef<HTMLButtonElement | null>(null)
-  /** 確認を開いた操作。閉じた際に焦点を戻すために保持する。 */
-  const confirmTriggerRef = useRef<HTMLButtonElement | null>(null)
+  /** 更新の完了を支援技術へ伝えるための文言。 */
+  const [updateNotice, setUpdateNotice] = useState('')
 
   const closeConfirm = useCallback(() => {
     setConfirmingStatus(null)
-    confirmTriggerRef.current?.focus()
   }, [])
-
-  // 確認が現れたことを支援技術へ伝えるため、確認の操作へ焦点を移す。
-  useEffect(() => {
-    if (confirmingStatus !== null) confirmButtonRef.current?.focus()
-  }, [confirmingStatus])
-
-  // Escape は「やめる」と同じ動作とする。
-  useEffect(() => {
-    if (confirmingStatus === null) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeConfirm()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [confirmingStatus, closeConfirm])
 
   useEffect(() => {
     let cancelled = false
@@ -110,6 +92,7 @@ export function ReservationDetailPage() {
 
       setConfirmingStatus(null)
       setUpdateErrorMessage('')
+      setUpdateNotice('')
       setPendingStatus(next)
       // 応答を待たずに反映する。一覧にも同じ値が見える。
       apply(reservation.id, next)
@@ -119,6 +102,7 @@ export function ReservationDetailPage() {
 
       if (result.ok) {
         setReservation(result.value)
+        setUpdateNotice(`ステータスを${RESERVATION_STATUS_LABELS[next]}に変更しました。`)
       } else {
         // 直前の状態へ復元し、画面遷移を伴わずに通知する。
         revert(reservation.id)
@@ -201,6 +185,10 @@ export function ReservationDetailPage() {
         <dd>{formatDateTime(reservation.createdAt)}</dd>
       </dl>
 
+      <p className="detail__notice" role="status">
+        {updateNotice}
+      </p>
+
       {updateErrorMessage !== '' && (
         <p className="detail__error" role="alert">
           {updateErrorMessage}
@@ -216,9 +204,8 @@ export function ReservationDetailPage() {
               key={next}
               type="button"
               disabled={pendingStatus !== null}
-              onClick={(event) => {
+              onClick={() => {
                 if (isIrreversible(next)) {
-                  confirmTriggerRef.current = event.currentTarget
                   setConfirmingStatus(next)
                 } else {
                   void changeStatus(next)
@@ -232,33 +219,14 @@ export function ReservationDetailPage() {
       </div>
 
       {confirmingStatus !== null && (
-        <div
-          className="notice"
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="confirm-title"
-          aria-describedby="confirm-description"
-        >
-          <h2 id="confirm-title" className="notice__title">
-            操作の確認
-          </h2>
-          <p id="confirm-description">
-            この予約を{RESERVATION_STATUS_LABELS[confirmingStatus]}にします。元に戻せません。よろしいですか？
-          </p>
-          <div className="detail__actions">
-            <button
-              ref={confirmButtonRef}
-              type="button"
-              disabled={pendingStatus !== null}
-              onClick={() => void changeStatus(confirmingStatus)}
-            >
-              {RESERVATION_STATUS_LABELS[confirmingStatus]}にする
-            </button>
-            <button type="button" onClick={closeConfirm}>
-              やめる
-            </button>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="操作の確認"
+          description={`この予約を${RESERVATION_STATUS_LABELS[confirmingStatus]}にします。元に戻せません。よろしいですか？`}
+          confirmLabel={`${RESERVATION_STATUS_LABELS[confirmingStatus]}にする`}
+          busy={pendingStatus !== null}
+          onConfirm={() => void changeStatus(confirmingStatus)}
+          onCancel={closeConfirm}
+        />
       )}
     </section>
   )

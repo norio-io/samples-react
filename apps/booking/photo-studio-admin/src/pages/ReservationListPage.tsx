@@ -249,7 +249,8 @@ export function ReservationListPage() {
         </div>
       ) : (
         <>
-          <table className="table" aria-busy={isInitialLoading || isRefreshing}>
+          <div className="table-wrapper">
+            <table className="table" aria-busy={isInitialLoading || isRefreshing}>
             <thead>
               <tr>
                 {LIST_SORT_FIELDS.map((field) => (
@@ -296,7 +297,8 @@ export function ReservationListPage() {
                     </tr>
                   ))}
             </tbody>
-          </table>
+            </table>
+          </div>
 
           {isEmpty && (
             <div className="notice">
