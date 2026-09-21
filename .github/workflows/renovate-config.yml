@@ -1,0 +1,32 @@
+name: Renovate config
+
+# `renovate.json` の変更時のみ実行する。設定の変更は稀であり、
+# `renovate-config-validator` の取得コストを全プルリクエストに課さないため。
+#
+# 本ワークフローのジョブを Ruleset の必須ステータスチェックに追加してはならない。
+# 対象外のプルリクエストではジョブが起動せず、チェックが Expected のまま残って
+# マージ不能となるため。
+on:
+  pull_request:
+    paths:
+      - renovate.json
+      - .github/workflows/renovate-config.yml
+  push:
+    branches: [main]
+    paths:
+      - renovate.json
+      - .github/workflows/renovate-config.yml
+
+jobs:
+  renovate-config:
+    name: renovate-config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # 公式文書が案内する検証手段は renovate-config-validator CLI、
+      # pre-commit フック、renovate/reconfigure ブランチの3つであり、
+      # 検証用の公式 Action は存在しない。
+      - run: npx --yes --package renovate -- renovate-config-validator --strict
