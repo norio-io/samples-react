@@ -1,18 +1,32 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { APP_CONTENT_ID, ConfirmDialog } from './ConfirmDialog'
+import { APP_CONTENT_ID } from '../app/appContent'
+import { ConfirmDialog } from './ConfirmDialog'
 
-function Host({ onConfirm = vi.fn() }: { onConfirm?: () => void }) {
+function Host({
+  onConfirm = vi.fn(),
+  removeTriggerOnConfirm = false,
+}: {
+  onConfirm?: () => void
+  removeTriggerOnConfirm?: boolean
+}) {
   const [open, setOpen] = useState(false)
+  const [triggerRemoved, setTriggerRemoved] = useState(false)
+  const fallbackRef = useRef<HTMLParagraphElement | null>(null)
 
   return (
     <div>
       <div id={APP_CONTENT_ID}>
-        <button type="button" onClick={() => setOpen(true)}>
-          開く
-        </button>
+        <p tabIndex={-1} ref={fallbackRef}>
+          通知領域
+        </p>
+        {!triggerRemoved && (
+          <button type="button" onClick={() => setOpen(true)}>
+            開く
+          </button>
+        )}
         <a href="/other">背面のリンク</a>
       </div>
       {open && (
@@ -20,7 +34,13 @@ function Host({ onConfirm = vi.fn() }: { onConfirm?: () => void }) {
           title="操作の確認"
           description="元に戻せません。よろしいですか？"
           confirmLabel="実行する"
-          onConfirm={onConfirm}
+          fallbackFocusRef={fallbackRef}
+          onConfirm={() => {
+            onConfirm()
+            // 操作の結果、呼び出し元のボタンが取り除かれる場合を模す。
+            if (removeTriggerOnConfirm) setTriggerRemoved(true)
+            setOpen(false)
+          }}
           onCancel={() => setOpen(false)}
         />
       )}
@@ -95,5 +115,18 @@ describe('ConfirmDialog', () => {
     await user.click(screen.getByRole('button', { name: '開く' }))
     await user.keyboard('{Enter}')
     expect(onConfirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('呼び出し元が取り除かれた場合は代わりの移動先へ焦点を移す', async () => {
+    const user = userEvent.setup()
+    render(<Host removeTriggerOnConfirm />)
+
+    await user.click(screen.getByRole('button', { name: '開く' }))
+    await user.keyboard('{Enter}')
+
+    expect(screen.queryByRole('button', { name: '開く' })).not.toBeInTheDocument()
+    // 焦点が body へ外れない。
+    expect(screen.getByText('通知領域')).toHaveFocus()
+    expect(document.body).not.toHaveFocus()
   })
 })

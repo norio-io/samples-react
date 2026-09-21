@@ -1,5 +1,5 @@
 import { Link, Outlet } from 'react-router-dom'
-import { APP_CONTENT_ID } from '../components/ConfirmDialog'
+import { APP_CONTENT_ID } from './appContent'
 
 export function Layout() {
   return (

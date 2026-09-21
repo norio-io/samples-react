@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import {
@@ -51,6 +51,8 @@ export function ReservationDetailPage() {
   const [confirmingStatus, setConfirmingStatus] = useState<ReservationStatus | null>(null)
   /** 更新の完了を支援技術へ伝えるための文言。 */
   const [updateNotice, setUpdateNotice] = useState('')
+  /** 確認の実行で操作ボタンが消える場合の、焦点の移動先。 */
+  const noticeRef = useRef<HTMLParagraphElement | null>(null)
 
   const closeConfirm = useCallback(() => {
     setConfirmingStatus(null)
@@ -185,7 +187,7 @@ export function ReservationDetailPage() {
         <dd>{formatDateTime(reservation.createdAt)}</dd>
       </dl>
 
-      <p className="detail__notice" role="status">
+      <p className="detail__notice" role="status" tabIndex={-1} ref={noticeRef}>
         {updateNotice}
       </p>
 
@@ -224,6 +226,7 @@ export function ReservationDetailPage() {
           description={`この予約を${RESERVATION_STATUS_LABELS[confirmingStatus]}にします。元に戻せません。よろしいですか？`}
           confirmLabel={`${RESERVATION_STATUS_LABELS[confirmingStatus]}にする`}
           busy={pendingStatus !== null}
+          fallbackFocusRef={noticeRef}
           onConfirm={() => void changeStatus(confirmingStatus)}
           onCancel={closeConfirm}
         />

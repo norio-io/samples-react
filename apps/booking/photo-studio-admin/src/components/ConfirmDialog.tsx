@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-
-/** 背面を不活性化する対象。Layout が付与する。 */
-export const APP_CONTENT_ID = 'app-content'
+import { APP_CONTENT_ID } from '../app/appContent'
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -13,6 +11,11 @@ interface ConfirmDialogProps {
   confirmLabel: string
   cancelLabel?: string
   busy?: boolean
+  /**
+   * 閉じた際に呼び出し元が取り除かれている場合の、焦点の移動先。
+   * 操作の結果、呼び出し元のボタン自体が消える場合に用いる。
+   */
+  fallbackFocusRef?: RefObject<HTMLElement | null>
   onConfirm: () => void
   onCancel: () => void
 }
@@ -30,6 +33,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = 'やめる',
   busy = false,
+  fallbackFocusRef,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -37,11 +41,20 @@ export function ConfirmDialog({
   const confirmRef = useRef<HTMLButtonElement | null>(null)
 
   // 開いた際に確認の操作へ焦点を移し、閉じた際は呼び出し元へ戻す。
+  // 操作の結果として呼び出し元が取り除かれている場合は、焦点が body へ
+  // 外れてしまうため、代わりの移動先へ移す。
+  const fallbackRef = useRef(fallbackFocusRef)
+  fallbackRef.current = fallbackFocusRef
+
   useEffect(() => {
     const previous = document.activeElement
     confirmRef.current?.focus()
     return () => {
-      if (previous instanceof HTMLElement) previous.focus()
+      if (previous instanceof HTMLElement && previous.isConnected) {
+        previous.focus()
+        return
+      }
+      fallbackRef.current?.current?.focus()
     }
   }, [])
 

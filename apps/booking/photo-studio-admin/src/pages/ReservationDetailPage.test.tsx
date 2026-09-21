@@ -155,6 +155,8 @@ describe('ReservationDetailPage', () => {
     // 楽観的更新のため表示は即座に変わる。後続のテストへ影響しないよう、
     // 応答が確定するまで待つ。
     await waitFor(() => expect(statusText()).toContain('キャンセル'))
+    // キャンセルは終端であり操作ボタンが消えるため、焦点は通知領域へ移る。
+    expect(screen.getByRole('status')).toHaveFocus()
     await waitFor(() => expect(screen.queryByText('更新中…')).not.toBeInTheDocument())
   })
 
