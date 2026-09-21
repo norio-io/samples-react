@@ -18,9 +18,9 @@ function renderAt(path: string) {
 async function findRows(): Promise<HTMLElement[]> {
   const table = await screen.findByRole('table')
   await waitFor(() => {
-    expect(table.querySelectorAll('tbody tr').length).toBeGreaterThan(0)
+    expect(table.querySelectorAll('tbody tr:not(.table__skeleton)').length).toBeGreaterThan(0)
   })
-  return [...table.querySelectorAll<HTMLElement>('tbody tr')]
+  return [...table.querySelectorAll<HTMLElement>('tbody tr:not(.table__skeleton)')]
 }
 
 function currentSearch(): URLSearchParams {
@@ -46,7 +46,7 @@ describe('ReservationListPage', () => {
     await findRows()
 
     await waitFor(() => {
-      const rows = [...document.querySelectorAll('tbody tr')]
+      const rows = [...document.querySelectorAll('tbody tr:not(.table__skeleton)')]
       expect(rows.length).toBeGreaterThan(0)
       for (const row of rows) {
         const cells = cellsOf(row)
@@ -170,7 +170,7 @@ describe('ReservationListPage', () => {
     await waitFor(() => expect(currentSearch().get('q')).toBe('商品撮影'), { timeout: 3000 })
 
     await waitFor(() => {
-      const rows = [...document.querySelectorAll('tbody tr')]
+      const rows = [...document.querySelectorAll('tbody tr:not(.table__skeleton)')]
       expect(rows.length).toBeGreaterThan(0)
       for (const row of rows) {
         expect(cellsOf(row)[5]).toBe('商品撮影')
@@ -188,9 +188,58 @@ describe('ReservationListPage', () => {
     await waitFor(() => expect(currentSearch().get('q')).toBe('090-0000-1000'), { timeout: 3000 })
 
     await waitFor(() => {
-      const rows = [...document.querySelectorAll('tbody tr')]
+      const rows = [...document.querySelectorAll('tbody tr:not(.table__skeleton)')]
       expect(rows).toHaveLength(1)
     })
+  })
+
+  it('初回読込では一覧と同じ形状のプレースホルダを表示する', async () => {
+    renderAt('/')
+
+    const table = screen.getByRole('table')
+    expect(table).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByText('読み込み中')).toBeInTheDocument()
+
+    const skeletonRows = table.querySelectorAll('tbody tr.table__skeleton')
+    expect(skeletonRows).toHaveLength(20)
+    // 列の数は一覧と同じであり、読込完了時に形状が変わらない。
+    expect(skeletonRows[0]?.querySelectorAll('td')).toHaveLength(6)
+
+    await findRows()
+    expect(table.querySelectorAll('tbody tr.table__skeleton')).toHaveLength(0)
+    expect(table).toHaveAttribute('aria-busy', 'false')
+  })
+
+  it('該当なしの場合は絞り込みの解除手段を示す', async () => {
+    const user = userEvent.setup()
+    renderAt('/?q=該当しない文字列')
+
+    expect(await screen.findByText('条件に合致する予約はありません。')).toBeInTheDocument()
+    expect(screen.getByText('該当する予約はありません')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'ページ送り' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '絞り込みを解除する' }))
+    await waitFor(() => expect(window.location.search).toBe(''))
+    expect((await findRows()).length).toBe(20)
+  })
+
+  it('条件の変更による再取得中は直前の結果を表示したまま取得中を示す', async () => {
+    const user = userEvent.setup()
+    renderAt('/')
+    const before = await findRows()
+    const firstCustomer = before[0]?.textContent ?? ''
+
+    await user.click(screen.getByRole('button', { name: '次へ' }))
+
+    // 初回読込とは異なり、プレースホルダへ戻さず直前の結果を保つ。
+    const table = screen.getByRole('table')
+    expect(table).toHaveAttribute('aria-busy', 'true')
+    expect(table.querySelectorAll('tbody tr.table__skeleton')).toHaveLength(0)
+    expect(screen.getByText('更新中…')).toBeInTheDocument()
+    expect(table.querySelector('tbody tr')?.textContent).toBe(firstCustomer)
+
+    expect(await screen.findByText(/80件中 21–40件/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('更新中…')).not.toBeInTheDocument())
   })
 
   it('各行から詳細画面へ遷移できる', async () => {
