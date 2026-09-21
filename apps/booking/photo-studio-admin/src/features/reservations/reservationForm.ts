@@ -5,6 +5,7 @@ import {
   isValidStartHour,
   OPENING_HOUR,
 } from '../../domain/businessHours'
+import { normalizeTel } from '../../domain/tel'
 import type { ReservationDraft } from '../../domain/types'
 import { STUDIOS } from '../../mock/seed'
 
@@ -62,7 +63,7 @@ export const FORM_FIELD_LABELS: Record<ReservationFormField | 'note', string> = 
 export type ReservationFormErrors = Partial<Record<ReservationFormField, string>>
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
-/** 電話番号はハイフンなしの半角数字とする。 */
+/** 電話番号の保存値は半角数字のみとする。入力ではハイフンを許容する。 */
 const TEL_PATTERN = /^\d{10,11}$/
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -114,8 +115,8 @@ export function validateReservationForm(
 
   if (isBlank(values.customerTel)) {
     errors.customerTel = '電話番号を入力してください。'
-  } else if (!TEL_PATTERN.test(values.customerTel)) {
-    errors.customerTel = '電話番号はハイフンなしの半角数字で入力してください。'
+  } else if (!TEL_PATTERN.test(normalizeTel(values.customerTel))) {
+    errors.customerTel = '電話番号は半角数字10桁または11桁で入力してください。ハイフンは省略できます。'
   }
 
   if (isBlank(values.customerEmail)) {
@@ -137,7 +138,7 @@ export function toReservationDraft(values: ReservationFormValues): ReservationDr
     startHour: Number(values.startHour),
     hours: Number(values.hours),
     customerName: values.customerName.trim(),
-    customerTel: values.customerTel.trim(),
+    customerTel: normalizeTel(values.customerTel),
     customerEmail: values.customerEmail.trim(),
     purpose: values.purpose.trim(),
     status: 'tentative',

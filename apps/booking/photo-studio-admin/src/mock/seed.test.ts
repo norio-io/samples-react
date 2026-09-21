@@ -57,7 +57,7 @@ describe('初期データ', () => {
 
   it('連絡先は架空の値である', () => {
     for (const reservation of createSeedReservations()) {
-      expect(reservation.customerTel).toMatch(/^090-0000-\d{4}$/)
+      expect(reservation.customerTel).toMatch(/^0900000\d{4}$/)
       expect(reservation.customerEmail).toMatch(/@example\.com$/)
     }
   })

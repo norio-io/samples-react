@@ -5,6 +5,7 @@ import {
   nextStatuses,
   STATUS_ACTION_LABELS,
 } from '../domain/statusTransitions'
+import { formatTel } from '../domain/tel'
 import {
   RESERVATION_STATUS_LABELS,
   type Reservation,
@@ -189,7 +190,7 @@ export function ReservationDetailPage() {
         <dt>顧客名</dt>
         <dd>{reservation.customerName}</dd>
         <dt>電話番号</dt>
-        <dd>{reservation.customerTel}</dd>
+        <dd>{formatTel(reservation.customerTel)}</dd>
         <dt>メールアドレス</dt>
         <dd>{reservation.customerEmail}</dd>
         <dt>利用目的</dt>

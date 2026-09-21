@@ -22,3 +22,16 @@ export function addDays(date: string, days: number): string {
 export function diffDays(a: string, b: string): number {
   return Math.round((parseDate(a).getTime() - parseDate(b).getTime()) / 86_400_000)
 }
+
+/**
+ * 現在時刻を暦上の日付（YYYY-MM-DD）へ落とす。
+ *
+ * `formatDate(new Date())` は toISOString() 経由のため UTC での日付となり、
+ * 地域時刻とずれる。「今日」を判定する場面ではこちらを用いる。
+ */
+export function getToday(now: Date = new Date()): string {
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}

@@ -71,11 +71,11 @@ describe('validateReservationForm', () => {
     expect(errors.hours).toBeUndefined()
   })
 
-  it('電話番号はハイフンなしの半角数字とする', () => {
-    expect(validate({ customerTel: '090-0000-1234' }).customerTel).toContain('ハイフンなし')
-    expect(validate({ customerTel: '０９０００００１２３４' }).customerTel).toContain('ハイフンなし')
-    expect(validate({ customerTel: '123' }).customerTel).toContain('ハイフンなし')
+  it('電話番号は数字10桁または11桁とし、ハイフンを許容する', () => {
+    expect(validate({ customerTel: '090-0000-1234' }).customerTel).toBeUndefined()
     expect(validate({ customerTel: '0312345678' }).customerTel).toBeUndefined()
+    expect(validate({ customerTel: '123' }).customerTel).toContain('10桁または11桁')
+    expect(validate({ customerTel: '０９０００００１２３４' }).customerTel).toContain('10桁または11桁')
   })
 
   it('メールアドレスの形式を検査する', () => {
@@ -111,6 +111,12 @@ describe('toReservationDraft', () => {
       customerEmail: 'test@example.com',
       purpose: '商品撮影',
       status: 'tentative',
+    })
+  })
+
+  it('電話番号は数字のみへ正規化して保存する', () => {
+    expect(toReservationDraft({ ...VALID, customerTel: '090-0000-1234' })).toMatchObject({
+      customerTel: '09000001234',
     })
   })
 

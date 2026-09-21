@@ -13,6 +13,8 @@ export default defineConfig({
     emptyOutDir: true,
   },
   test: {
+    // 日本向けの題材であり、UTC との差がある環境で検証する。
+    env: { TZ: 'Asia/Tokyo' },
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

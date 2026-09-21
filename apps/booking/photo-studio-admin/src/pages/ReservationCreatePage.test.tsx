@@ -3,13 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { AppRoutes } from '../app/AppRoutes'
-import { addDays, formatDate } from '../domain/date'
-import { createReservation, resetMockStore } from '../mock/api'
+import { addDays, getToday } from '../domain/date'
+import { createReservation, listReservations, resetMockStore } from '../mock/api'
 import { resetMutationFailureRate, setMutationFailureRate } from '../mock/config'
 import type { ReservationDraft } from '../domain/types'
 
 /** 初期データの範囲外の日付を用い、既存の予約と干渉しないようにする。 */
-const TARGET_DATE = addDays(formatDate(new Date()), 60)
+const TARGET_DATE = addDays(getToday(), 60)
 
 function renderCreatePage() {
   return render(
@@ -20,17 +20,17 @@ function renderCreatePage() {
 }
 
 async function fillValidValues(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText('日付'), TARGET_DATE)
+  await user.type(screen.getByLabelText(/^日付/), TARGET_DATE)
   // スタジオの選択肢は非同期に読み込まれる。
   await screen.findByRole('option', { name: 'Aスタジオ' })
-  await user.selectOptions(screen.getByLabelText('スタジオ'), 'studio-a')
-  await user.selectOptions(screen.getByLabelText('開始時刻'), '10')
-  await user.clear(screen.getByLabelText('利用時間数'))
-  await user.type(screen.getByLabelText('利用時間数'), '2')
-  await user.type(screen.getByLabelText('顧客名'), '検証 太郎')
-  await user.type(screen.getByLabelText('電話番号'), '09000001234')
-  await user.type(screen.getByLabelText('メールアドレス'), 'test@example.com')
-  await user.type(screen.getByLabelText('用途'), '商品撮影')
+  await user.selectOptions(screen.getByLabelText(/^スタジオ/), 'studio-a')
+  await user.selectOptions(screen.getByLabelText(/^開始時刻/), '10')
+  await user.clear(screen.getByLabelText(/^利用時間数/))
+  await user.type(screen.getByLabelText(/^利用時間数/), '2')
+  await user.type(screen.getByLabelText(/^顧客名/), '検証 太郎')
+  await user.type(screen.getByLabelText(/^電話番号/), '09000001234')
+  await user.type(screen.getByLabelText(/^メールアドレス/), 'test@example.com')
+  await user.type(screen.getByLabelText(/^用途/), '商品撮影')
 }
 
 const CONFLICTING: ReservationDraft = {
@@ -66,7 +66,7 @@ describe('ReservationCreatePage', () => {
     expect(screen.getByText('顧客名を入力してください。')).toBeInTheDocument()
     expect(screen.getByText('用途を入力してください。')).toBeInTheDocument()
 
-    const dateField = screen.getByLabelText('日付')
+    const dateField = screen.getByLabelText(/^日付/)
     expect(dateField).toHaveFocus()
     expect(dateField).toHaveAttribute('aria-invalid', 'true')
     // エラー文言は入力欄と関連づける。
@@ -80,10 +80,10 @@ describe('ReservationCreatePage', () => {
     await user.click(screen.getByRole('button', { name: '登録する' }))
     expect(screen.getByText('顧客名を入力してください。')).toBeInTheDocument()
 
-    await user.type(screen.getByLabelText('顧客名'), '検')
+    await user.type(screen.getByLabelText(/^顧客名/), '検')
 
     expect(screen.queryByText('顧客名を入力してください。')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('顧客名')).toHaveAttribute('aria-invalid', 'false')
+    expect(screen.getByLabelText(/^顧客名/)).toHaveAttribute('aria-invalid', 'false')
     // 他の項目の指摘は残る。
     expect(screen.getByText('用途を入力してください。')).toBeInTheDocument()
   })
@@ -92,10 +92,10 @@ describe('ReservationCreatePage', () => {
     const user = userEvent.setup()
     renderCreatePage()
 
-    await user.type(screen.getByLabelText('日付'), addDays(formatDate(new Date()), -1))
-    await user.selectOptions(screen.getByLabelText('開始時刻'), '20')
-    await user.clear(screen.getByLabelText('利用時間数'))
-    await user.type(screen.getByLabelText('利用時間数'), '2')
+    await user.type(screen.getByLabelText(/^日付/), addDays(getToday(), -1))
+    await user.selectOptions(screen.getByLabelText(/^開始時刻/), '20')
+    await user.clear(screen.getByLabelText(/^利用時間数/))
+    await user.type(screen.getByLabelText(/^利用時間数/), '2')
     await user.click(screen.getByRole('button', { name: '登録する' }))
 
     expect(screen.getByText('過去の日付は指定できません。')).toBeInTheDocument()
@@ -143,6 +143,42 @@ describe('ReservationCreatePage', () => {
       expect(cells[2]).toBe('仮予約')
       expect(cells[3]).toBe('10:00–12:00')
     })
+  })
+
+  it('必須項目であることが送信前に示される', async () => {
+    renderCreatePage()
+
+    for (const label of [
+      '日付',
+      'スタジオ',
+      '開始時刻',
+      '利用時間数',
+      '顧客名',
+      '電話番号',
+      'メールアドレス',
+      '用途',
+    ]) {
+      expect(screen.getByLabelText(new RegExp(`^${label}`))).toBeRequired()
+    }
+    expect(screen.getAllByText('必須')).toHaveLength(8)
+    expect(screen.getByLabelText('備考')).not.toBeRequired()
+  })
+
+  it('電話番号はハイフン付きでも受け付け、数字のみで保存する', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    await fillValidValues(user)
+    await user.clear(screen.getByLabelText(/^電話番号/))
+    await user.type(screen.getByLabelText(/^電話番号/), '090-0000-1234')
+    await user.click(screen.getByRole('button', { name: '登録する' }))
+
+    expect(await screen.findByRole('heading', { name: '予約一覧' })).toBeInTheDocument()
+    expect(await screen.findByText('検証 太郎')).toBeInTheDocument()
+
+    // 表示は整形された形式で引ける。
+    const created = await listReservations({ keyword: '090-0000-1234', perPage: 100 })
+    expect(created.ok && created.value.items[0]?.customerTel).toBe('09000001234')
   })
 
   it('登録中は重複して送信できない', async () => {

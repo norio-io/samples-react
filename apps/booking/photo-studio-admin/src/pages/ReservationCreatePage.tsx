@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { formatHour, SELECTABLE_START_HOURS } from '../domain/businessHours'
-import { formatDate } from '../domain/date'
+import { getToday } from '../domain/date'
 import { RESERVATION_STATUS_LABELS, type Reservation, type Studio } from '../domain/types'
 import { createReservation, listStudios } from '../mock/api'
 import {
@@ -24,16 +24,19 @@ type FieldElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
 function Field({
   field,
   error,
+  required = false,
   children,
 }: {
   field: ReservationFormField | 'note'
   error?: string | undefined
+  required?: boolean
   children: ReactNode
 }) {
   return (
     <div className="field">
       <label className="field__label" htmlFor={field}>
         {FORM_FIELD_LABELS[field]}
+        {required && <span className="field__required">必須</span>}
       </label>
       {children}
       {error !== undefined && (
@@ -47,7 +50,7 @@ function Field({
 
 export function ReservationCreatePage() {
   const navigate = useNavigate()
-  const today = useMemo(() => formatDate(new Date()), [])
+  const today = useMemo(() => getToday(), [])
 
   const [values, setValues] = useState<ReservationFormValues>(EMPTY_FORM_VALUES)
   const [errors, setErrors] = useState<ReservationFormErrors>({})
@@ -111,6 +114,7 @@ export function ReservationCreatePage() {
 
   const fieldProps = (field: ReservationFormField) => ({
     id: field,
+    required: true,
     'aria-invalid': errors[field] !== undefined,
     'aria-describedby': errors[field] !== undefined ? `${field}-error` : undefined,
   })
@@ -137,7 +141,7 @@ export function ReservationCreatePage() {
           void submit()
         }}
       >
-        <Field field="date" error={errors.date}>
+        <Field field="date" error={errors.date} required>
           <input
             {...fieldProps('date')}
             ref={(element) => {
@@ -150,7 +154,7 @@ export function ReservationCreatePage() {
           />
         </Field>
 
-        <Field field="studioId" error={errors.studioId}>
+        <Field field="studioId" error={errors.studioId} required>
           <select
             {...fieldProps('studioId')}
             ref={(element) => {
@@ -168,7 +172,7 @@ export function ReservationCreatePage() {
           </select>
         </Field>
 
-        <Field field="startHour" error={errors.startHour}>
+        <Field field="startHour" error={errors.startHour} required>
           <select
             {...fieldProps('startHour')}
             ref={(element) => {
@@ -186,7 +190,7 @@ export function ReservationCreatePage() {
           </select>
         </Field>
 
-        <Field field="hours" error={errors.hours}>
+        <Field field="hours" error={errors.hours} required>
           <input
             {...fieldProps('hours')}
             ref={(element) => {
@@ -199,7 +203,7 @@ export function ReservationCreatePage() {
           />
         </Field>
 
-        <Field field="customerName" error={errors.customerName}>
+        <Field field="customerName" error={errors.customerName} required>
           <input
             {...fieldProps('customerName')}
             ref={(element) => {
@@ -211,7 +215,7 @@ export function ReservationCreatePage() {
           />
         </Field>
 
-        <Field field="customerTel" error={errors.customerTel}>
+        <Field field="customerTel" error={errors.customerTel} required>
           <input
             {...fieldProps('customerTel')}
             ref={(element) => {
@@ -225,7 +229,7 @@ export function ReservationCreatePage() {
           />
         </Field>
 
-        <Field field="customerEmail" error={errors.customerEmail}>
+        <Field field="customerEmail" error={errors.customerEmail} required>
           <input
             {...fieldProps('customerEmail')}
             ref={(element) => {
@@ -237,7 +241,7 @@ export function ReservationCreatePage() {
           />
         </Field>
 
-        <Field field="purpose" error={errors.purpose}>
+        <Field field="purpose" error={errors.purpose} required>
           <input
             {...fieldProps('purpose')}
             ref={(element) => {

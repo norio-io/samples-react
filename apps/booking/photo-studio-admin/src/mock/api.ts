@@ -7,6 +7,7 @@ import {
   type Studio,
 } from '../domain/types'
 import { canTransition } from '../domain/statusTransitions'
+import { formatTel } from '../domain/tel'
 import { delay, shouldFailMutation } from './config'
 import { fail, ok, type Result } from './result'
 import { createSeedReservations, STUDIOS } from './seed'
@@ -73,7 +74,9 @@ function matches(reservation: Reservation, query: ReservationListQuery): boolean
     const keyword = query.keyword.trim().toLowerCase()
     const haystack = [
       reservation.customerName,
+      // 電話番号は保存値と表示形式のどちらでも引けるようにする。
       reservation.customerTel,
+      formatTel(reservation.customerTel),
       reservation.customerEmail,
       reservation.purpose,
     ]
