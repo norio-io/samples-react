@@ -127,22 +127,49 @@ describe('ReservationDetailPage', () => {
 
     await user.click(await screen.findByRole('button', { name: 'キャンセルする' }))
 
-    const dialog = screen.getByRole('dialog', { name: '操作の確認' })
+    const dialog = screen.getByRole('alertdialog', { name: '操作の確認' })
     expect(dialog).toHaveTextContent('元に戻せません')
     // 確認の時点では変更されない。
     expect(statusText()).toContain('仮予約')
 
     await user.click(within(dialog).getByRole('button', { name: 'やめる' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(statusText()).toContain('仮予約')
 
     await user.click(screen.getByRole('button', { name: 'キャンセルする' }))
     await user.click(
-      within(screen.getByRole('dialog', { name: '操作の確認' })).getByRole('button', {
+      within(screen.getByRole('alertdialog', { name: '操作の確認' })).getByRole('button', {
         name: 'キャンセルにする',
       }),
     )
+    // 楽観的更新のため表示は即座に変わる。後続のテストへ影響しないよう、
+    // 応答が確定するまで待つ。
     await waitFor(() => expect(statusText()).toContain('キャンセル'))
+    await waitFor(() => expect(screen.queryByText('更新中…')).not.toBeInTheDocument())
+  })
+
+  it('確認を開くと焦点が移り、Escape と「やめる」で呼び出し元へ戻る', async () => {
+    const user = userEvent.setup()
+    renderAt(`/reservations/${idOfStatus('tentative')}`)
+
+    const trigger = await screen.findByRole('button', { name: 'キャンセルする' })
+    await user.click(trigger)
+
+    const dialog = screen.getByRole('alertdialog', { name: '操作の確認' })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAccessibleDescription(/元に戻せません/)
+    // 確認が現れたことが伝わるよう、確認の操作へ焦点を移す。
+    expect(within(dialog).getByRole('button', { name: 'キャンセルにする' })).toHaveFocus()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+    expect(statusText()).toContain('仮予約')
+
+    await user.click(trigger)
+    await user.click(screen.getByRole('button', { name: 'やめる' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
   })
 
   it('一覧へ戻ると検索条件が保持される', async () => {

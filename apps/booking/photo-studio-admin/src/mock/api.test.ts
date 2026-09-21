@@ -207,6 +207,8 @@ describe('updateReservationStatus', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error.code).toBe('INVALID_TRANSITION')
+    // 文言は内部の識別子ではなく利用者向けの表記とする。
+    expect(result.error.message).toBe('完了から確定への変更は認められていません。')
 
     const reloaded = await settle(getReservation(id))
     expect(reloaded.ok && reloaded.value.status).toBe('completed')

@@ -284,3 +284,8 @@ a {
   font-size: 0.9rem;
   color: var(--color-muted);
 }
+
+.notice__title {
+  margin: 0;
+  font-size: 1rem;
+}

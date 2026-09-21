@@ -1,5 +1,6 @@
 import {
   RESERVATION_STATUSES,
+  RESERVATION_STATUS_LABELS,
   type Reservation,
   type ReservationDraft,
   type ReservationStatus,
@@ -172,7 +173,7 @@ export async function updateReservationStatus(
   if (!canTransition(current.status, status)) {
     return fail(
       'INVALID_TRANSITION',
-      `${current.status} から ${status} への変更は認められていません。`,
+      `${RESERVATION_STATUS_LABELS[current.status]}から${RESERVATION_STATUS_LABELS[status]}への変更は認められていません。`,
     )
   }
 
