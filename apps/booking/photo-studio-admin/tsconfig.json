@@ -5,7 +5,9 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["node", "vitest/globals", "@testing-library/jest-dom"],
+    // Vitest の型定義はグローバルの Chai 名前空間を参照する。types を明示すると
+    // node_modules/@types の自動取り込みが無効になるため、chai を列挙する。
+    "types": ["node", "chai", "vitest/globals"],
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,

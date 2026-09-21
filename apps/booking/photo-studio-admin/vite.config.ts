@@ -1,7 +1,6 @@
-/// <reference types="vitest" />
 import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 
 // GitHub Pages ではリポジトリ全体で単一の dist/ を公開するため、
 // サンプルごとの成果物はリポジトリ直下の dist/<制作種別>/<業種の抽象名>/ へ出力する。
