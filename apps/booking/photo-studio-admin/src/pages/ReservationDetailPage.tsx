@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { StatusBadge } from '../components/StatusBadge'
 import {
   isIrreversible,
   nextStatuses,
@@ -127,7 +128,9 @@ export function ReservationDetailPage() {
   if (loadStatus === 'notFound') {
     return (
       <section className="detail">
-        <h1>予約が見つかりません</h1>
+        <div className="page-head">
+          <h1 className="page-head__title">予約が見つかりません</h1>
+        </div>
         <p>指定された予約は存在しません。URLをご確認ください。</p>
         <p>
           <Link to={backLink}>一覧へ戻る</Link>
@@ -139,8 +142,12 @@ export function ReservationDetailPage() {
   if (loadStatus === 'error' || reservation === null) {
     return (
       <section className="detail">
-        <h1>予約詳細</h1>
-        <p role="alert">{loadErrorMessage}</p>
+        <div className="page-head">
+          <h1 className="page-head__title">予約詳細</h1>
+        </div>
+        <p className="detail__error" role="alert">
+          {loadErrorMessage}
+        </p>
         <p>
           <Link to={backLink}>一覧へ戻る</Link>
         </p>
@@ -149,43 +156,54 @@ export function ReservationDetailPage() {
   }
 
   const status = effectiveStatus(reservation, overrides)
-  const studioName = studios.find((studio) => studio.id === reservation.studioId)?.name ?? reservation.studioId
+  const studioName =
+    studios.find((studio) => studio.id === reservation.studioId)?.name ?? reservation.studioId
   const actions = nextStatuses(status)
 
   return (
     <section className="detail">
-      <p>
+      <p className="back-link">
         <Link to={backLink}>← 一覧へ戻る</Link>
       </p>
-      <h1>予約詳細</h1>
 
-      <dl className="detail__items">
-        <dt>予約ID</dt>
-        <dd>{reservation.id}</dd>
-        <dt>ステータス</dt>
-        <dd>
-          {RESERVATION_STATUS_LABELS[status]}
-          {pendingStatus !== null && <span className="detail__pending"> 更新中…</span>}
-        </dd>
-        <dt>日付</dt>
-        <dd>{reservation.date}</dd>
-        <dt>時間帯</dt>
-        <dd>{formatTimeRange(reservation)}</dd>
-        <dt>スタジオ</dt>
-        <dd>{studioName}</dd>
-        <dt>顧客名</dt>
-        <dd>{reservation.customerName}</dd>
-        <dt>電話番号</dt>
-        <dd>{formatTel(reservation.customerTel)}</dd>
-        <dt>メールアドレス</dt>
-        <dd>{reservation.customerEmail}</dd>
-        <dt>利用目的</dt>
-        <dd>{reservation.purpose}</dd>
-        <dt>備考</dt>
-        <dd>{reservation.note ?? 'なし'}</dd>
-        <dt>受付日時</dt>
-        <dd>{formatDateTime(reservation.createdAt)}</dd>
-      </dl>
+      {/* 画面名と操作を上部へ置き、内容を読む前に取れる操作が分かるようにする。 */}
+      <div className="page-head">
+        <h1 className="page-head__title">予約詳細</h1>
+        <div className="page-head__actions">
+          {actions.length === 0 ? (
+            <p className="detail__hint">このステータスから変更できる操作はありません。</p>
+          ) : (
+            actions.map((next) => (
+              <button
+                key={next}
+                type="button"
+                // 取り消せない操作は警告色で区別する。
+                className={`button ${isIrreversible(next) ? 'button--danger' : 'button--primary'}`}
+                disabled={pendingStatus !== null}
+                onClick={() => {
+                  if (isIrreversible(next)) {
+                    setConfirmingStatus(next)
+                  } else {
+                    void changeStatus(next)
+                  }
+                }}
+              >
+                {STATUS_ACTION_LABELS[next]}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* 顧客名と日時を見出し相当へ上げ、最初に目に入るようにする。 */}
+      <div className="detail__summary panel">
+        <h2 className="detail__customer">{reservation.customerName}</h2>
+        <p className="detail__when">
+          {reservation.date} {formatTimeRange(reservation)}
+        </p>
+        <p className="detail__studio">{studioName}</p>
+        <StatusBadge status={status} />
+      </div>
 
       <p className="detail__notice" role="status" tabIndex={-1} ref={noticeRef}>
         {updateNotice}
@@ -197,27 +215,47 @@ export function ReservationDetailPage() {
         </p>
       )}
 
-      <div className="detail__actions">
-        {actions.length === 0 ? (
-          <p className="detail__hint">このステータスから変更できる操作はありません。</p>
-        ) : (
-          actions.map((next) => (
-            <button
-              key={next}
-              type="button"
-              disabled={pendingStatus !== null}
-              onClick={() => {
-                if (isIrreversible(next)) {
-                  setConfirmingStatus(next)
-                } else {
-                  void changeStatus(next)
-                }
-              }}
-            >
-              {STATUS_ACTION_LABELS[next]}
-            </button>
-          ))
-        )}
+      <div className="detail__columns">
+        <section className="panel">
+          <h3 className="detail__section-title">予約情報</h3>
+          <dl className="detail__items">
+            <dt>ステータス</dt>
+            <dd>
+              {RESERVATION_STATUS_LABELS[status]}
+              {pendingStatus !== null && <span className="detail__pending"> 更新中…</span>}
+            </dd>
+            <dt>日付</dt>
+            <dd>{reservation.date}</dd>
+            <dt>時間帯</dt>
+            <dd>{formatTimeRange(reservation)}</dd>
+            <dt>スタジオ</dt>
+            <dd>{studioName}</dd>
+            <dt>利用目的</dt>
+            <dd>{reservation.purpose}</dd>
+            <dt>備考</dt>
+            <dd>{reservation.note ?? 'なし'}</dd>
+          </dl>
+        </section>
+
+        <section className="panel">
+          <h3 className="detail__section-title">顧客情報</h3>
+          <dl className="detail__items">
+            <dt>顧客名</dt>
+            <dd>{reservation.customerName}</dd>
+            <dt>電話番号</dt>
+            <dd>{formatTel(reservation.customerTel)}</dd>
+            <dt>メールアドレス</dt>
+            <dd>{reservation.customerEmail}</dd>
+          </dl>
+
+          {/* 受付日時と予約IDは参照のための補助情報として下げる。 */}
+          <dl className="detail__items detail__id">
+            <dt>受付日時</dt>
+            <dd>{formatDateTime(reservation.createdAt)}</dd>
+            <dt>予約ID</dt>
+            <dd>{reservation.id}</dd>
+          </dl>
+        </section>
       </div>
 
       {confirmingStatus !== null && (

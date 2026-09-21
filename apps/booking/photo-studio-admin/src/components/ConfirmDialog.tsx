@@ -118,10 +118,17 @@ export function ConfirmDialog({
         </h2>
         <p id="confirm-description">{description}</p>
         <div className="dialog__actions">
-          <button ref={confirmRef} type="button" disabled={busy} onClick={onConfirm}>
+          {/* 取り消せない操作の実行であるため、警告色の主操作として示す。 */}
+          <button
+            ref={confirmRef}
+            type="button"
+            className="button button--danger-strong"
+            disabled={busy}
+            onClick={onConfirm}
+          >
             {confirmLabel}
           </button>
-          <button type="button" onClick={onCancel}>
+          <button type="button" className="button button--secondary" onClick={onCancel}>
             {cancelLabel}
           </button>
         </div>

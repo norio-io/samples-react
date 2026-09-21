@@ -20,6 +20,8 @@ type FieldElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
 /**
  * ラベル・入力・エラー文言を兄弟として並べる。
  * ラベルで入力を包むと、エラー文言がアクセシブル名に含まれてしまうため。
+ *
+ * 必須の印はラベル行の右端へ寄せる。行に並んだ項目の間で印の位置が揃う。
  */
 function Field({
   field,
@@ -124,14 +126,19 @@ export function ReservationCreatePage() {
 
   return (
     <section className="create">
-      <p>
+      <p className="back-link">
         <Link to="/">← 一覧へ戻る</Link>
       </p>
-      <h1>予約の登録</h1>
-      <p className="create__hint">
-        電話などで受け付けた予約を登録します。登録直後のステータスは
-        {RESERVATION_STATUS_LABELS.tentative}です。
-      </p>
+
+      <div className="page-head">
+        <div>
+          <h1 className="page-head__title">予約の登録</h1>
+          <p className="page-head__lead">
+            電話などで受け付けた予約を登録します。登録直後のステータスは
+            {RESERVATION_STATUS_LABELS.tentative}です。
+          </p>
+        </div>
+      </div>
 
       <form
         className="create__form"
@@ -141,126 +148,161 @@ export function ReservationCreatePage() {
           void submit()
         }}
       >
-        <Field field="date" error={errors.date} required>
-          <input
-            {...fieldProps('date')}
-            ref={(element) => {
-              fieldRefs.current.date = element
-            }}
-            type="date"
-            value={values.date}
-            min={today}
-            onChange={(event) => change('date', event.target.value)}
-          />
-        </Field>
+        {/* 関連する項目を行でまとめる。日程は3項目を1行に並べる。 */}
+        <fieldset className="form__group">
+          <legend>予約内容</legend>
 
-        <Field field="studioId" error={errors.studioId} required>
-          <select
-            {...fieldProps('studioId')}
-            ref={(element) => {
-              fieldRefs.current.studioId = element
-            }}
-            value={values.studioId}
-            onChange={(event) => change('studioId', event.target.value)}
-          >
-            <option value="">選択してください</option>
-            {studios.map((studio) => (
-              <option key={studio.id} value={studio.id}>
-                {studio.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+          <div className="form__row">
+            <div className="form__cell">
+              <Field field="date" error={errors.date} required>
+                <input
+                  {...fieldProps('date')}
+                  ref={(element) => {
+                    fieldRefs.current.date = element
+                  }}
+                  type="date"
+                  value={values.date}
+                  min={today}
+                  onChange={(event) => change('date', event.target.value)}
+                />
+              </Field>
+            </div>
 
-        <Field field="startHour" error={errors.startHour} required>
-          <select
-            {...fieldProps('startHour')}
-            ref={(element) => {
-              fieldRefs.current.startHour = element
-            }}
-            value={values.startHour}
-            onChange={(event) => change('startHour', event.target.value)}
-          >
-            <option value="">選択してください</option>
-            {SELECTABLE_START_HOURS.map((hour) => (
-              <option key={hour} value={String(hour)}>
-                {formatHour(hour)}
-              </option>
-            ))}
-          </select>
-        </Field>
+            <div className="form__cell">
+              <Field field="startHour" error={errors.startHour} required>
+                <select
+                  {...fieldProps('startHour')}
+                  ref={(element) => {
+                    fieldRefs.current.startHour = element
+                  }}
+                  value={values.startHour}
+                  onChange={(event) => change('startHour', event.target.value)}
+                >
+                  <option value="">選択してください</option>
+                  {SELECTABLE_START_HOURS.map((hour) => (
+                    <option key={hour} value={String(hour)}>
+                      {formatHour(hour)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
 
-        <Field field="hours" error={errors.hours} required>
-          <input
-            {...fieldProps('hours')}
-            ref={(element) => {
-              fieldRefs.current.hours = element
-            }}
-            type="number"
-            min="1"
-            value={values.hours}
-            onChange={(event) => change('hours', event.target.value)}
-          />
-        </Field>
+            <div className="form__cell">
+              <Field field="hours" error={errors.hours} required>
+                <input
+                  {...fieldProps('hours')}
+                  ref={(element) => {
+                    fieldRefs.current.hours = element
+                  }}
+                  type="number"
+                  min="1"
+                  value={values.hours}
+                  onChange={(event) => change('hours', event.target.value)}
+                />
+              </Field>
+            </div>
+          </div>
 
-        <Field field="customerName" error={errors.customerName} required>
-          <input
-            {...fieldProps('customerName')}
-            ref={(element) => {
-              fieldRefs.current.customerName = element
-            }}
-            type="text"
-            value={values.customerName}
-            onChange={(event) => change('customerName', event.target.value)}
-          />
-        </Field>
+          <div className="form__row">
+            <div className="form__cell">
+              <Field field="studioId" error={errors.studioId} required>
+                <select
+                  {...fieldProps('studioId')}
+                  ref={(element) => {
+                    fieldRefs.current.studioId = element
+                  }}
+                  value={values.studioId}
+                  onChange={(event) => change('studioId', event.target.value)}
+                >
+                  <option value="">選択してください</option>
+                  {studios.map((studio) => (
+                    <option key={studio.id} value={studio.id}>
+                      {studio.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
 
-        <Field field="customerTel" error={errors.customerTel} required>
-          <input
-            {...fieldProps('customerTel')}
-            ref={(element) => {
-              fieldRefs.current.customerTel = element
-            }}
-            type="tel"
-            inputMode="numeric"
-            placeholder="09000001234"
-            value={values.customerTel}
-            onChange={(event) => change('customerTel', event.target.value)}
-          />
-        </Field>
+            <div className="form__cell form__cell--wide">
+              <Field field="purpose" error={errors.purpose} required>
+                <input
+                  {...fieldProps('purpose')}
+                  ref={(element) => {
+                    fieldRefs.current.purpose = element
+                  }}
+                  type="text"
+                  value={values.purpose}
+                  onChange={(event) => change('purpose', event.target.value)}
+                />
+              </Field>
+            </div>
+          </div>
 
-        <Field field="customerEmail" error={errors.customerEmail} required>
-          <input
-            {...fieldProps('customerEmail')}
-            ref={(element) => {
-              fieldRefs.current.customerEmail = element
-            }}
-            type="email"
-            value={values.customerEmail}
-            onChange={(event) => change('customerEmail', event.target.value)}
-          />
-        </Field>
+          <div className="form__row">
+            <div className="form__cell form__cell--full">
+              <Field field="note">
+                <textarea
+                  id="note"
+                  rows={3}
+                  value={values.note}
+                  onChange={(event) => change('note', event.target.value)}
+                />
+              </Field>
+            </div>
+          </div>
+        </fieldset>
 
-        <Field field="purpose" error={errors.purpose} required>
-          <input
-            {...fieldProps('purpose')}
-            ref={(element) => {
-              fieldRefs.current.purpose = element
-            }}
-            type="text"
-            value={values.purpose}
-            onChange={(event) => change('purpose', event.target.value)}
-          />
-        </Field>
+        <fieldset className="form__group">
+          <legend>顧客情報</legend>
 
-        <Field field="note">
-          <textarea
-            id="note"
-            rows={3}
-            value={values.note}
-            onChange={(event) => change('note', event.target.value)}
-          />
-        </Field>
+          <div className="form__row">
+            <div className="form__cell">
+              <Field field="customerName" error={errors.customerName} required>
+                <input
+                  {...fieldProps('customerName')}
+                  ref={(element) => {
+                    fieldRefs.current.customerName = element
+                  }}
+                  type="text"
+                  value={values.customerName}
+                  onChange={(event) => change('customerName', event.target.value)}
+                />
+              </Field>
+            </div>
+
+            <div className="form__cell">
+              <Field field="customerTel" error={errors.customerTel} required>
+                <input
+                  {...fieldProps('customerTel')}
+                  ref={(element) => {
+                    fieldRefs.current.customerTel = element
+                  }}
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="09000001234"
+                  value={values.customerTel}
+                  onChange={(event) => change('customerTel', event.target.value)}
+                />
+              </Field>
+            </div>
+
+            <div className="form__cell">
+              <Field field="customerEmail" error={errors.customerEmail} required>
+                <input
+                  {...fieldProps('customerEmail')}
+                  ref={(element) => {
+                    fieldRefs.current.customerEmail = element
+                  }}
+                  type="email"
+                  value={values.customerEmail}
+                  onChange={(event) => change('customerEmail', event.target.value)}
+                />
+              </Field>
+            </div>
+          </div>
+        </fieldset>
 
         {submitErrorMessage !== '' && (
           <div className="notice">
@@ -283,7 +325,7 @@ export function ReservationCreatePage() {
         )}
 
         <div className="create__actions">
-          <button type="submit" disabled={submitting}>
+          <button type="submit" className="button button--primary" disabled={submitting}>
             {submitting ? '登録中…' : '登録する'}
           </button>
         </div>

@@ -264,7 +264,8 @@ describe('ReservationListPage', () => {
     renderAt('/')
     await findRows()
 
-    // 絞り込み
+    // 絞り込み（スタジオは折りたたみの内側にあるため、先に開く）
+    await user.click(screen.getByRole('button', { name: '詳細な条件' }))
     await user.click(screen.getByLabelText('Aスタジオ'))
     await waitFor(() => expect(currentSearch().get('studio')).toBe('studio-a'))
 
@@ -291,6 +292,81 @@ describe('ReservationListPage', () => {
 
     const table = screen.getByRole('table')
     expect(table.parentElement).toHaveClass('table-wrapper')
+  })
+
+  it('詳細な条件は既定で折りたたまれ、開く操作で利用できる', async () => {
+    const user = userEvent.setup()
+    renderAt('/')
+    await findRows()
+
+    const toggle = screen.getByRole('button', { name: '詳細な条件' })
+    const extra = screen.getByLabelText('Aスタジオ').closest('[id]')
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(extra).not.toBeVisible()
+
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(extra).toBeVisible()
+  })
+
+  it('折りたたんだ側の条件がURLにある場合は開いた状態で表示する', async () => {
+    renderAt('/?status=confirmed')
+    await findRows()
+
+    expect(screen.getByRole('button', { name: '詳細な条件' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    )
+    expect(screen.getByLabelText('確定')).toBeVisible()
+  })
+
+  it('適用中の条件を件数とともに示す', async () => {
+    renderAt('/?from=2026-09-21&status=confirmed&q=家族')
+
+    const legend = await screen.findByText('適用中の条件')
+    const chips = legend.parentElement
+    expect(chips).not.toBeNull()
+    if (chips === null) return
+
+    expect(within(chips).getByText('期間 2026-09-21〜指定なし')).toBeInTheDocument()
+    expect(within(chips).getByText('確定')).toBeInTheDocument()
+    expect(within(chips).getByText('「家族」')).toBeInTheDocument()
+
+    // 件数と同じ帯に置き、何で絞った結果の件数なのかが分かるようにする。
+    const summary = await screen.findByText(/件中|該当する予約はありません/)
+    expect(summary.parentElement).toBe(chips.parentElement)
+  })
+
+  it('ステータスは色に加えて文字で示す', async () => {
+    renderAt('/?status=confirmed')
+    const rows = await findRows()
+
+    for (const row of rows) {
+      // ステータスの列は表示名そのものを読み取れる。
+      expect(cellsOf(row)[2]).toBe('確定')
+      expect(within(row).getByText('確定')).toBeInTheDocument()
+    }
+  })
+
+  it('日付のリンクに加えて行全体が詳細への導線となる', async () => {
+    const user = userEvent.setup()
+    const rows = await (async () => {
+      renderAt('/')
+      return findRows()
+    })()
+
+    const firstRow = rows[0]
+    expect(firstRow).toBeDefined()
+    if (firstRow === undefined) return
+
+    // リンクは日付セルの1つのみを保つ。
+    expect(within(firstRow).getAllByRole('link')).toHaveLength(1)
+    const expected = within(firstRow).getByRole('link').getAttribute('href')
+
+    // リンク以外のセルを押しても詳細へ遷移する。
+    await user.click(within(firstRow).getByText(/./, { selector: 'td:nth-child(5)' }))
+    await waitFor(() => expect(window.location.pathname).toBe(expected))
   })
 
   it('各行から詳細画面へ遷移できる', async () => {
