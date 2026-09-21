@@ -55,7 +55,7 @@ samples-react/
 
 ## 依存関係の更新
 
-- 依存関係の更新は Renovate が起票する。設定は `renovate.json` に置き、CI の `renovate-config` ジョブで `renovate-config-validator` による検証を行う。
+- 依存関係の更新は Renovate が起票する。設定は `renovate.json` に置き、`renovate-config` ジョブ（`.github/workflows/renovate-config.yml`）で `renovate-config-validator` による検証を行う。同ジョブは `renovate.json` の変更時のみ実行するため、Ruleset の必須ステータスチェックには追加しない。
 - 自動マージは有効にしない。必須ステータスチェックの通過をもって承認とはしない。
 - Renovate が作成したプルリクエストには `by: renovate` と `type: dependency-upgrade` の2枚のラベルが付与される。
 - 複数パッケージの同時更新が必要で Renovate が扱えない場合は手動で更新する。そのプルリクエストには `type: dependency-upgrade` のみを付与する。
