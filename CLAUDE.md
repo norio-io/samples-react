@@ -53,6 +53,13 @@ samples-react/
 - プルリクエストに対し、型検査・静的解析・テスト・ビルドを実行する。`main` への統合時に GitHub Pages へ公開する。公開元は GitHub Actions とする。
 - **CI のジョブ名 `typecheck` / `lint` / `test` / `build` は、Ruleset `main protection` が必須ステータスチェックとして名前で参照している。** ジョブ名を変更する場合は Ruleset 側の更新が必須であり、一致しない場合はプルリクエストがマージ不能となる。
 
+## 依存関係の更新
+
+- 依存関係の更新は Renovate が起票する。設定は `renovate.json` に置き、CI の `renovate-config` ジョブで `renovate-config-validator` による検証を行う。
+- 自動マージは有効にしない。必須ステータスチェックの通過をもって承認とはしない。
+- Renovate が作成したプルリクエストには `by: renovate` と `type: dependency-upgrade` の2枚のラベルが付与される。
+- 複数パッケージの同時更新が必要で Renovate が扱えない場合は手動で更新する。そのプルリクエストには `type: dependency-upgrade` のみを付与する。
+
 ## 開発の進め方
 
 ### ブランチの命名

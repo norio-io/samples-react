@@ -55,3 +55,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  # Renovate の設定検証。Ruleset の必須ステータスチェックには含めないため、
+  # ジョブ名の変更に Ruleset 側の更新は伴わない。
+  renovate-config:
+    name: renovate-config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npx --yes --package renovate -- renovate-config-validator --strict
