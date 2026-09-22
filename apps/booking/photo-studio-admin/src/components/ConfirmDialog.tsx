@@ -40,8 +40,16 @@ export function ConfirmDialog({
   const dialogRef = useRef<HTMLDivElement | null>(null)
   const confirmRef = useRef<HTMLButtonElement | null>(null)
 
+  /**
+   * 焦点の移動先の控え。
+   *
+   * 後始末は解除時にのみ実行するため、副作用の依存は空とする。その中から
+   * 最新の値を読めるよう ref へ写すが、書き込みは描画中ではなく副作用で行う。
+   */
   const fallbackRef = useRef(fallbackFocusRef)
-  fallbackRef.current = fallbackFocusRef
+  useEffect(() => {
+    fallbackRef.current = fallbackFocusRef
+  })
 
   /**
    * 背面の不活性化と焦点の制御。

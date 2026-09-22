@@ -21,7 +21,11 @@ import {
   useStatusOverrides,
 } from '../features/reservations/statusOverridesContext'
 
-type LoadStatus = 'loading' | 'ready' | 'notFound' | 'error'
+/** 取得の結末。読み込み中は結果が無い状態として表す。 */
+type LoadResult =
+  | { status: 'ready'; reservation: Reservation }
+  | { status: 'notFound' }
+  | { status: 'error'; message: string }
 
 function formatTimeRange(reservation: Reservation): string {
   const end = reservation.startHour + reservation.hours
@@ -41,10 +45,18 @@ export function ReservationDetailPage() {
 
   const { overrides, apply, revert } = useStatusOverrides()
 
-  const [loadStatus, setLoadStatus] = useState<LoadStatus>('loading')
-  const [reservation, setReservation] = useState<Reservation | null>(null)
+  /**
+   * 取得の結果。どの予約に対する結果かを併せて持つ。
+   *
+   * 予約が変わった際に副作用から読み込み中へ戻すと描画が連鎖するため、
+   * 状態を戻さず、要求中の予約と結果の予約が一致するかで読み込み中を導く。
+   */
+  const [loaded, setLoaded] = useState<{ id: string; result: LoadResult } | null>(null)
+  const loadResult = loaded?.id === reservationId ? loaded.result : null
+  /** 取得済みの予約。操作の可否を判断するため、早期復帰より前から参照する。 */
+  const currentReservation = loadResult?.status === 'ready' ? loadResult.reservation : null
+
   const [studios, setStudios] = useState<Studio[]>([])
-  const [loadErrorMessage, setLoadErrorMessage] = useState('')
   /** 更新中のステータス。同一の操作を重複して実行させないために用いる。 */
   const [pendingStatus, setPendingStatus] = useState<ReservationStatus | null>(null)
   const [updateErrorMessage, setUpdateErrorMessage] = useState('')
@@ -61,17 +73,14 @@ export function ReservationDetailPage() {
 
   useEffect(() => {
     let cancelled = false
-    setLoadStatus('loading')
     void getReservation(reservationId).then((result) => {
       if (cancelled) return
       if (result.ok) {
-        setReservation(result.value)
-        setLoadStatus('ready')
+        setLoaded({ id: reservationId, result: { status: 'ready', reservation: result.value } })
       } else if (result.error.code === 'NOT_FOUND') {
-        setLoadStatus('notFound')
+        setLoaded({ id: reservationId, result: { status: 'notFound' } })
       } else {
-        setLoadErrorMessage(result.error.message)
-        setLoadStatus('error')
+        setLoaded({ id: reservationId, result: { status: 'error', message: result.error.message } })
       }
     })
     return () => {
@@ -91,33 +100,33 @@ export function ReservationDetailPage() {
 
   const changeStatus = useCallback(
     async (next: ReservationStatus) => {
-      if (reservation === null || pendingStatus !== null) return
+      if (currentReservation === null || pendingStatus !== null) return
 
       setConfirmingStatus(null)
       setUpdateErrorMessage('')
       setUpdateNotice('')
       setPendingStatus(next)
       // 応答を待たずに反映する。一覧にも同じ値が見える。
-      apply(reservation.id, next)
+      apply(currentReservation.id, next)
 
-      const result = await updateReservationStatus(reservation.id, next)
+      const result = await updateReservationStatus(currentReservation.id, next)
       setPendingStatus(null)
 
       if (result.ok) {
-        setReservation(result.value)
+        setLoaded({ id: result.value.id, result: { status: 'ready', reservation: result.value } })
         setUpdateNotice(`ステータスを${RESERVATION_STATUS_LABELS[next]}に変更しました。`)
       } else {
         // 直前の状態へ復元し、画面遷移を伴わずに通知する。
-        revert(reservation.id)
+        revert(currentReservation.id)
         setUpdateErrorMessage(result.error.message)
       }
     },
-    [reservation, pendingStatus, apply, revert],
+    [currentReservation, pendingStatus, apply, revert],
   )
 
   const backLink = { pathname: '/', search: listSearch }
 
-  if (loadStatus === 'loading') {
+  if (loadResult === null) {
     return (
       <section className="detail">
         <p aria-live="polite">読み込み中</p>
@@ -125,7 +134,7 @@ export function ReservationDetailPage() {
     )
   }
 
-  if (loadStatus === 'notFound') {
+  if (loadResult.status === 'notFound') {
     return (
       <section className="detail">
         <div className="page-head">
@@ -139,14 +148,14 @@ export function ReservationDetailPage() {
     )
   }
 
-  if (loadStatus === 'error' || reservation === null) {
+  if (loadResult.status === 'error') {
     return (
       <section className="detail">
         <div className="page-head">
           <h1 className="page-head__title">予約詳細</h1>
         </div>
         <p className="detail__error" role="alert">
-          {loadErrorMessage}
+          {loadResult.message}
         </p>
         <p>
           <Link to={backLink}>一覧へ戻る</Link>
@@ -155,6 +164,7 @@ export function ReservationDetailPage() {
     )
   }
 
+  const reservation = loadResult.reservation
   const status = effectiveStatus(reservation, overrides)
   const studioName =
     studios.find((studio) => studio.id === reservation.studioId)?.name ?? reservation.studioId

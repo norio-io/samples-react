@@ -55,6 +55,16 @@ export function ReservationListPage() {
   // 折りたたんだ条件が適用済みのまま隠れないよう、初期状態はURLの条件で決める。
   const hasExtraCondition = search.studioIds.length > 0 || search.statuses.length > 0
   const [extraOpen, setExtraOpen] = useState(hasExtraCondition)
+  /**
+   * 折りたたんだ側の条件の有無。履歴の移動などで条件が加わった際に開くため、
+   * 前回の描画との差を見る。副作用から状態を変えると描画が連鎖するため、
+   * 差が生じた描画の中で調整する。
+   */
+  const [lastHasExtraCondition, setLastHasExtraCondition] = useState(hasExtraCondition)
+  if (hasExtraCondition !== lastHasExtraCondition) {
+    setLastHasExtraCondition(hasExtraCondition)
+    if (hasExtraCondition) setExtraOpen(true)
+  }
 
   const { status, result, appliedSearch, errorMessage, retry } = useReservationList(search)
   const { overrides } = useStatusOverrides()
@@ -83,11 +93,6 @@ export function ReservationListPage() {
       cancelled = true
     }
   }, [])
-
-  // 履歴の移動などで折りたたんだ側の条件が復元された場合は、開いて見えるようにする。
-  useEffect(() => {
-    if (hasExtraCondition) setExtraOpen(true)
-  }, [hasExtraCondition])
 
   // 総件数は応答を受け取るまで分からないため、範囲外のページ番号は応答側で
   // 丸められる。URL を丸めた結果へ追従させ、表示・ページ送り・URL を一致させる。

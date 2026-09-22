@@ -1,12 +1,14 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Reservation, ReservationStatus } from '../domain/types'
 import { AppRoutes } from '../app/AppRoutes'
 import { resetMockStore } from '../mock/api'
 import { resetMutationFailureRate, setMutationFailureRate } from '../mock/config'
 import { createSeedReservations } from '../mock/seed'
+import { ReservationStatusOverridesProvider } from '../features/reservations/statusOverrides'
+import { ReservationDetailPage } from './ReservationDetailPage'
 
 /** 指定のステータスを持つ初期データを返す。 */
 function reservationOfStatus(status: ReservationStatus): Reservation {
@@ -91,6 +93,55 @@ describe('ReservationDetailPage', () => {
       screen.getByText('予約ID').compareDocumentPosition(heading) &
         Node.DOCUMENT_POSITION_PRECEDING,
     ).toBeTruthy()
+  })
+
+  it('別の予約へ移ると、前の予約を残さず読み込み中から始める', async () => {
+    const user = userEvent.setup()
+    const first = reservationOfStatus('tentative')
+    const found = createSeedReservations().find(
+      (item) => item.id !== first.id && item.customerName !== first.customerName,
+    )
+    expect(found).toBeDefined()
+    if (found === undefined) return
+    const second = found
+
+    /** 画面を保ったままパラメータだけを変える。 */
+    function Navigator() {
+      const navigate = useNavigate()
+      return (
+        <button type="button" onClick={() => navigate(`/reservations/${second.id}`)}>
+          次の予約へ
+        </button>
+      )
+    }
+
+    render(
+      <MemoryRouter initialEntries={[`/reservations/${first.id}`]}>
+        <ReservationStatusOverridesProvider>
+          <Navigator />
+          <Routes>
+            <Route path="reservations/:reservationId" element={<ReservationDetailPage />} />
+          </Routes>
+        </ReservationStatusOverridesProvider>
+      </MemoryRouter>,
+    )
+
+    // 顧客名は見出しに出る。値そのものは項目にも並ぶため、見出しで見分ける。
+    expect(
+      await screen.findByRole('heading', { level: 2, name: first.customerName }),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '次の予約へ' }))
+
+    // 前の予約の内容を残したまま表示しない。
+    expect(
+      screen.queryByRole('heading', { level: 2, name: first.customerName }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('読み込み中')).toBeInTheDocument()
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: second.customerName }),
+    ).toBeInTheDocument()
   })
 
   it('存在しない id では画面が壊れず案内を表示する', async () => {

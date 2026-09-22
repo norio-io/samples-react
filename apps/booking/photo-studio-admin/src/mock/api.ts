@@ -100,7 +100,8 @@ function statusRank(status: ReservationStatus): number {
 
 function compare(a: Reservation, b: Reservation, sort: ReservationSort): number {
   const order = sort.direction === 'desc' ? -1 : 1
-  let result = 0
+  // すべての分岐で値を定めるため、初期値は置かない。
+  let result: number
   if (sort.field === 'date') {
     result = a.date.localeCompare(b.date) || a.startHour - b.startHour
   } else if (sort.field === 'studio') {
