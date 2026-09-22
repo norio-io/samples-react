@@ -12,12 +12,18 @@
       ;(function (l) {
         var SEGMENTS_TO_KEEP = 3
         var segments = l.pathname.split('/').slice(1)
-        if (segments.length <= SEGMENTS_TO_KEEP) {
+        // 末尾のスラッシュが生む空の要素は、セグメントの数に含めない。
+        var count = segments[segments.length - 1] === '' ? segments.length - 1 : segments.length
+        if (count <= SEGMENTS_TO_KEEP) {
           // サンプルの基点そのものが存在しない場合は、案内を表示して転送しない。
           return
         }
         var base = '/' + segments.slice(0, SEGMENTS_TO_KEEP).join('/') + '/'
         var rest = segments.slice(SEGMENTS_TO_KEEP).join('/')
+        if (base === l.pathname) {
+          // 判定に漏れがあっても繰り返しに陥らないよう、自分自身へは転送しない。
+          return
+        }
         l.replace(
           l.origin +
             base +
