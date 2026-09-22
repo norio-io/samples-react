@@ -12,8 +12,8 @@
     "build": "npm run build --workspaces --if-present && node scripts/build-pages-root.mjs"
   },
   "devDependencies": {
-    "@eslint/js": "^9.12.0",
-    "eslint": "^9.12.0",
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.5.0",
     "globals": "^17.0.0",
