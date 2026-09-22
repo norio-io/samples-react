@@ -27,6 +27,25 @@ type LoadResult =
   | { status: 'notFound' }
   | { status: 'error'; message: string }
 
+/** 予約に対する操作の状態。 */
+interface OperationState {
+  /** 更新中のステータス。同一の操作を重複して実行させないために用いる。 */
+  pending: ReservationStatus | null
+  /** 確認を求めている遷移先。 */
+  confirming: ReservationStatus | null
+  /** 更新の完了を支援技術へ伝えるための文言。 */
+  notice: string
+  /** 更新の失敗を伝える文言。 */
+  errorMessage: string
+}
+
+const NO_OPERATION: OperationState = {
+  pending: null,
+  confirming: null,
+  notice: '',
+  errorMessage: '',
+}
+
 function formatTimeRange(reservation: Reservation): string {
   const end = reservation.startHour + reservation.hours
   return `${String(reservation.startHour).padStart(2, '0')}:00–${String(end).padStart(2, '0')}:00`
@@ -57,19 +76,39 @@ export function ReservationDetailPage() {
   const currentReservation = loadResult?.status === 'ready' ? loadResult.reservation : null
 
   const [studios, setStudios] = useState<Studio[]>([])
-  /** 更新中のステータス。同一の操作を重複して実行させないために用いる。 */
-  const [pendingStatus, setPendingStatus] = useState<ReservationStatus | null>(null)
-  const [updateErrorMessage, setUpdateErrorMessage] = useState('')
-  /** 確認を求めている遷移先。 */
-  const [confirmingStatus, setConfirmingStatus] = useState<ReservationStatus | null>(null)
-  /** 更新の完了を支援技術へ伝えるための文言。 */
-  const [updateNotice, setUpdateNotice] = useState('')
+
+  /**
+   * 操作の状態。取得の結果と同じく、どの予約に対するものかを併せて持つ。
+   *
+   * 応答を待つ間に別の予約へ移ると、要求時の予約に対する結果が後から届く。
+   * 表示は現在の予約に対応するものだけから導き、前の予約の通知や更新中の
+   * 表示が移った先へ混ざらないようにする。
+   */
+  const [operation, setOperation] = useState<{ id: string; state: OperationState }>({
+    id: reservationId,
+    state: NO_OPERATION,
+  })
+  const {
+    pending: pendingStatus,
+    confirming: confirmingStatus,
+    notice: updateNotice,
+    errorMessage: updateErrorMessage,
+  } = operation.id === reservationId ? operation.state : NO_OPERATION
+
+  /** 指定の予約に対する操作の状態を書き換える。 */
+  const updateOperation = useCallback((id: string, change: Partial<OperationState>) => {
+    setOperation((prev) => ({
+      id,
+      state: { ...(prev.id === id ? prev.state : NO_OPERATION), ...change },
+    }))
+  }, [])
+
   /** 確認の実行で操作ボタンが消える場合の、焦点の移動先。 */
   const noticeRef = useRef<HTMLParagraphElement | null>(null)
 
   const closeConfirm = useCallback(() => {
-    setConfirmingStatus(null)
-  }, [])
+    updateOperation(reservationId, { confirming: null })
+  }, [reservationId, updateOperation])
 
   useEffect(() => {
     let cancelled = false
@@ -101,27 +140,38 @@ export function ReservationDetailPage() {
   const changeStatus = useCallback(
     async (next: ReservationStatus) => {
       if (currentReservation === null || pendingStatus !== null) return
+      const targetId = currentReservation.id
 
-      setConfirmingStatus(null)
-      setUpdateErrorMessage('')
-      setUpdateNotice('')
-      setPendingStatus(next)
+      updateOperation(targetId, { pending: next, confirming: null, notice: '', errorMessage: '' })
       // 応答を待たずに反映する。一覧にも同じ値が見える。
-      apply(currentReservation.id, next)
+      apply(targetId, next)
 
-      const result = await updateReservationStatus(currentReservation.id, next)
-      setPendingStatus(null)
+      const result = await updateReservationStatus(targetId, next)
+
+      if (!result.ok) {
+        // 楽観的な反映は一覧にも及ぶため、画面を離れていても直前の状態へ戻す。
+        revert(targetId)
+      }
+
+      // 応答は要求した予約に対する結果として反映する。別の予約へ移っていれば、
+      // 表示は移った先の状態から導かれるため、この書き込みは現れない。
+      updateOperation(
+        targetId,
+        result.ok
+          ? { pending: null, notice: `ステータスを${RESERVATION_STATUS_LABELS[next]}に変更しました。` }
+          : { pending: null, errorMessage: result.error.message },
+      )
 
       if (result.ok) {
-        setLoaded({ id: result.value.id, result: { status: 'ready', reservation: result.value } })
-        setUpdateNotice(`ステータスを${RESERVATION_STATUS_LABELS[next]}に変更しました。`)
-      } else {
-        // 直前の状態へ復元し、画面遷移を伴わずに通知する。
-        revert(currentReservation.id)
-        setUpdateErrorMessage(result.error.message)
+        // 取得の結果は画面で共有するため、要求した予約のままの場合にのみ書き換える。
+        setLoaded((prev) =>
+          prev?.id === targetId
+            ? { id: targetId, result: { status: 'ready', reservation: result.value } }
+            : prev,
+        )
       }
     },
-    [currentReservation, pendingStatus, apply, revert],
+    [currentReservation, pendingStatus, apply, revert, updateOperation],
   )
 
   const backLink = { pathname: '/', search: listSearch }
@@ -192,7 +242,7 @@ export function ReservationDetailPage() {
                 disabled={pendingStatus !== null}
                 onClick={() => {
                   if (isIrreversible(next)) {
-                    setConfirmingStatus(next)
+                    updateOperation(reservationId, { confirming: next })
                   } else {
                     void changeStatus(next)
                   }
