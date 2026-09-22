@@ -67,6 +67,32 @@ describe('ReservationDetailPage', () => {
     expect(statusText()).toContain('仮予約')
   })
 
+  it('顧客名と日時を見出し相当へ上げ、操作を画面上部へ置く', async () => {
+    const target = reservationOfStatus('tentative')
+    renderAt(`/reservations/${target.id}`)
+
+    // 顧客名は見出しとして示す。
+    const heading = await screen.findByRole('heading', { level: 2, name: target.customerName })
+    const summary = heading.parentElement
+    expect(summary).not.toBeNull()
+    if (summary === null) return
+    // 日時は顧客名と同じ領域へ並べる。
+    expect(within(summary).getByText(new RegExp(target.date))).toBeInTheDocument()
+
+    // 操作は内容を読む前に取れるよう、予約情報より前へ置く。
+    const action = screen.getByRole('button', { name: '確定する' })
+    expect(
+      action.compareDocumentPosition(screen.getByText('日付')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    // 予約IDは補助情報として、顧客名より後へ下げる。
+    expect(
+      screen.getByText('予約ID').compareDocumentPosition(heading) &
+        Node.DOCUMENT_POSITION_PRECEDING,
+    ).toBeTruthy()
+  })
+
   it('存在しない id では画面が壊れず案内を表示する', async () => {
     renderAt('/reservations/rsv-999')
 

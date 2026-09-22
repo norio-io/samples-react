@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { StatusBadge } from '../components/StatusBadge'
 import {
   RESERVATION_STATUSES,
   RESERVATION_STATUS_LABELS,
@@ -30,6 +31,9 @@ const KEYWORD_DEBOUNCE_MS = 300
 /** 一覧の列数。読込中のプレースホルダを一覧と同じ形状にするために用いる。 */
 const COLUMN_COUNT = 6
 
+/** 折りたたむ絞り込みの領域の識別子。開閉の操作から参照する。 */
+const EXTRA_FILTERS_ID = 'filters-extra'
+
 function formatTimeRange(reservation: Reservation): string {
   const end = reservation.startHour + reservation.hours
   return `${String(reservation.startHour).padStart(2, '0')}:00–${String(end).padStart(2, '0')}:00`
@@ -40,12 +44,17 @@ function toggleValue<T>(values: readonly T[], value: T): T[] {
 }
 
 export function ReservationListPage() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const search = useMemo(() => parseSearch(searchParams), [searchParams])
 
   const [studios, setStudios] = useState<Studio[]>([])
   const [keywordInput, setKeywordInput] = useState(search.keyword)
   const lastAppliedKeyword = useRef(search.keyword)
+
+  // 折りたたんだ条件が適用済みのまま隠れないよう、初期状態はURLの条件で決める。
+  const hasExtraCondition = search.studioIds.length > 0 || search.statuses.length > 0
+  const [extraOpen, setExtraOpen] = useState(hasExtraCondition)
 
   const { status, result, appliedSearch, errorMessage, retry } = useReservationList(search)
   const { overrides } = useStatusOverrides()
@@ -74,6 +83,11 @@ export function ReservationListPage() {
       cancelled = true
     }
   }, [])
+
+  // 履歴の移動などで折りたたんだ側の条件が復元された場合は、開いて見えるようにする。
+  useEffect(() => {
+    if (hasExtraCondition) setExtraOpen(true)
+  }, [hasExtraCondition])
 
   // 総件数は応答を受け取るまで分からないため、範囲外のページ番号は応答側で
   // 丸められる。URL を丸めた結果へ追従させ、表示・ページ送り・URL を一致させる。
@@ -136,42 +150,93 @@ export function ReservationListPage() {
   const firstIndex = total === 0 ? 0 : (displayedPage - 1) * (result?.perPage ?? 0) + 1
   const lastIndex = total === 0 ? 0 : firstIndex + items.length - 1
 
+  // 適用中の条件。折りたたんだ条件も含め、件数の近くで一覧できるようにする。
+  // 表示名は重なりうるため、鍵は条件の種別と値から組み立てる。
+  const appliedConditions: { key: string; label: string }[] = []
+  if (search.from !== '' || search.to !== '') {
+    const from = search.from === '' ? '指定なし' : search.from
+    const to = search.to === '' ? '指定なし' : search.to
+    appliedConditions.push({ key: 'period', label: `期間 ${from}〜${to}` })
+  }
+  for (const studioId of search.studioIds) {
+    appliedConditions.push({ key: `studio:${studioId}`, label: studioName(studioId) })
+  }
+  for (const value of search.statuses) {
+    appliedConditions.push({ key: `status:${value}`, label: RESERVATION_STATUS_LABELS[value] })
+  }
+  if (search.keyword !== '') {
+    appliedConditions.push({ key: 'keyword', label: `「${search.keyword}」` })
+  }
+
   const resetSearch = () => {
     setKeywordInput(DEFAULT_SEARCH.keyword)
     updateSearch(DEFAULT_SEARCH)
   }
 
+  const openDetail = (reservationId: string) => {
+    navigate({ pathname: `/reservations/${reservationId}`, search: detailSearch })
+  }
+
+  /**
+   * 行全体を詳細への導線とする。次の場合は遷移させず、既定の動作へ委ねる。
+   *
+   * - 日付セルのリンクが処理した場合（既定の動作が止められている）
+   * - 修飾キーまたは主ボタン以外を伴う場合。リンクは新しいタブで開く意図を
+   *   ブラウザへ委ねるため preventDefault を呼ばず、そのままでは現在のタブも遷移する
+   * - 文字を選択した直後の場合。選択のためのドラッグでも click は発生する
+   */
+  const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>, reservationId: string) => {
+    if (event.defaultPrevented) return
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+    if (event.button !== 0) return
+    if (window.getSelection()?.isCollapsed === false) return
+    openDetail(reservationId)
+  }
+
   return (
     <section className="list">
-      <div className="list__header">
-        <h1>予約一覧</h1>
-        <Link className="list__create" to="/reservations/new">
-          予約を登録する
-        </Link>
+      <div className="page-head">
+        <div>
+          <h1 className="page-head__title">予約一覧</h1>
+          <p className="page-head__lead">
+            電話および窓口で受け付けた予約を確認し、ステータスを更新します。
+          </p>
+        </div>
+        <div className="page-head__actions">
+          <Link className="button button--primary" to="/reservations/new">
+            予約を登録する
+          </Link>
+        </div>
       </div>
 
-      <form className="filters" onSubmit={(event) => event.preventDefault()}>
-        <div className="filters__row">
-          <label className="field">
-            <span className="field__label">開始日</span>
-            <input
-              type="date"
-              value={search.from}
-              onChange={(event) =>
-                updateSearch({ ...search, from: event.target.value, page: DEFAULT_SEARCH.page })
-              }
-            />
-          </label>
-          <label className="field">
-            <span className="field__label">終了日</span>
-            <input
-              type="date"
-              value={search.to}
-              onChange={(event) =>
-                updateSearch({ ...search, to: event.target.value, page: DEFAULT_SEARCH.page })
-              }
-            />
-          </label>
+      <form className="filters panel" onSubmit={(event) => event.preventDefault()}>
+        <div className="filters__main">
+          <div className="filters__dates">
+            <label className="field">
+              <span className="field__label">開始日</span>
+              <input
+                type="date"
+                value={search.from}
+                onChange={(event) =>
+                  updateSearch({ ...search, from: event.target.value, page: DEFAULT_SEARCH.page })
+                }
+              />
+            </label>
+            <span className="filters__dash" aria-hidden="true">
+              〜
+            </span>
+            <label className="field">
+              <span className="field__label">終了日</span>
+              <input
+                type="date"
+                value={search.to}
+                onChange={(event) =>
+                  updateSearch({ ...search, to: event.target.value, page: DEFAULT_SEARCH.page })
+                }
+              />
+            </label>
+          </div>
+
           <label className="field field--grow">
             <span className="field__label">顧客名・連絡先・用途</span>
             <input
@@ -181,69 +246,102 @@ export function ReservationListPage() {
               onChange={(event) => setKeywordInput(event.target.value)}
             />
           </label>
+
+          <div className="filters__tools">
+            <button
+              type="button"
+              className="button button--secondary button--small filters__toggle"
+              aria-expanded={extraOpen}
+              aria-controls={EXTRA_FILTERS_ID}
+              onClick={() => setExtraOpen((open) => !open)}
+            >
+              詳細な条件
+            </button>
+            <button
+              type="button"
+              className="button button--quiet button--small"
+              onClick={resetSearch}
+            >
+              条件をリセット
+            </button>
+          </div>
         </div>
 
-        <fieldset className="filters__group">
-          <legend>スタジオ</legend>
-          {studios.map((studio) => (
-            <label key={studio.id} className="choice">
-              <input
-                type="checkbox"
-                checked={search.studioIds.includes(studio.id)}
-                onChange={() =>
-                  updateSearch({
-                    ...search,
-                    studioIds: toggleValue(search.studioIds, studio.id),
-                    page: DEFAULT_SEARCH.page,
-                  })
-                }
-              />
-              {studio.name}
-            </label>
-          ))}
-        </fieldset>
+        <div className="filters__extra" id={EXTRA_FILTERS_ID} hidden={!extraOpen}>
+          <fieldset className="filters__group">
+            <legend>スタジオ</legend>
+            {studios.map((studio) => (
+              <label key={studio.id} className="choice">
+                <input
+                  type="checkbox"
+                  checked={search.studioIds.includes(studio.id)}
+                  onChange={() =>
+                    updateSearch({
+                      ...search,
+                      studioIds: toggleValue(search.studioIds, studio.id),
+                      page: DEFAULT_SEARCH.page,
+                    })
+                  }
+                />
+                {studio.name}
+              </label>
+            ))}
+          </fieldset>
 
-        <fieldset className="filters__group">
-          <legend>ステータス</legend>
-          {RESERVATION_STATUSES.map((reservationStatus) => (
-            <label key={reservationStatus} className="choice">
-              <input
-                type="checkbox"
-                checked={search.statuses.includes(reservationStatus)}
-                onChange={() =>
-                  updateSearch({
-                    ...search,
-                    statuses: toggleValue(search.statuses, reservationStatus),
-                    page: DEFAULT_SEARCH.page,
-                  })
-                }
-              />
-              {RESERVATION_STATUS_LABELS[reservationStatus]}
-            </label>
-          ))}
-        </fieldset>
-
-        <button type="button" className="filters__reset" onClick={resetSearch}>
-          条件をリセット
-        </button>
+          <fieldset className="filters__group">
+            <legend>ステータス</legend>
+            {RESERVATION_STATUSES.map((reservationStatus) => (
+              <label key={reservationStatus} className="choice">
+                <input
+                  type="checkbox"
+                  checked={search.statuses.includes(reservationStatus)}
+                  onChange={() =>
+                    updateSearch({
+                      ...search,
+                      statuses: toggleValue(search.statuses, reservationStatus),
+                      page: DEFAULT_SEARCH.page,
+                    })
+                  }
+                />
+                {RESERVATION_STATUS_LABELS[reservationStatus]}
+              </label>
+            ))}
+          </fieldset>
+        </div>
       </form>
 
-      <p className="summary" aria-live="polite">
-        {isInitialLoading && '読み込み中'}
-        {hasError && '取得に失敗しました'}
-        {!isInitialLoading && !hasError && (
-          <>
-            {total === 0 ? '該当する予約はありません' : `${total}件中 ${firstIndex}–${lastIndex}件`}
-            {isRefreshing && <span className="summary__refreshing"> 更新中…</span>}
-          </>
+      {/*
+        件数と適用中の条件。読込・エラー・結果のいずれの状態でも同じ位置に置き、
+        支援技術への通知が行われる領域を保つ。
+      */}
+      <div className="list__bar list__bar--top">
+        <p className="summary" aria-live="polite">
+          {isInitialLoading && '読み込み中'}
+          {hasError && '取得に失敗しました'}
+          {!isInitialLoading && !hasError && (
+            <>
+              {total === 0 ? '該当する予約はありません' : `${total}件中 ${firstIndex}–${lastIndex}件`}
+              {isRefreshing && <span className="summary__refreshing"> 更新中…</span>}
+            </>
+          )}
+        </p>
+        {appliedConditions.length > 0 && (
+          <p className="chips">
+            <span className="chips__legend">適用中の条件</span>
+            {appliedConditions.map((condition) => (
+              <span className="chip" key={condition.key}>
+                {condition.label}
+              </span>
+            ))}
+          </p>
         )}
-      </p>
+      </div>
 
       {hasError ? (
         <div className="notice">
           <p role="alert">{errorMessage}</p>
           <p className="notice__hint">検索条件はそのまま保持されます。</p>
-          <button type="button" onClick={retry}>
+          <button type="button" className="button button--secondary" onClick={retry}>
             再試行
           </button>
         </div>
@@ -278,7 +376,11 @@ export function ReservationListPage() {
                       </tr>
                     ))
                   : items.map((reservation) => (
-                      <tr key={reservation.id}>
+                      <tr
+                        key={reservation.id}
+                        className="table__row"
+                        onClick={(event) => handleRowClick(event, reservation.id)}
+                      >
                         <td>
                           <Link
                             to={{
@@ -290,10 +392,12 @@ export function ReservationListPage() {
                           </Link>
                         </td>
                         <td>{studioName(reservation.studioId)}</td>
-                        <td>{RESERVATION_STATUS_LABELS[effectiveStatus(reservation, overrides)]}</td>
+                        <td>
+                          <StatusBadge status={effectiveStatus(reservation, overrides)} />
+                        </td>
                         <td>{formatTimeRange(reservation)}</td>
                         <td>{reservation.customerName}</td>
-                        <td>{reservation.purpose}</td>
+                        <td className="table__cell--wide">{reservation.purpose}</td>
                       </tr>
                     ))}
               </tbody>
@@ -304,7 +408,7 @@ export function ReservationListPage() {
             <div className="notice">
               <p>条件に合致する予約はありません。</p>
               {hasFilter && (
-                <button type="button" onClick={resetSearch}>
+                <button type="button" className="button button--secondary" onClick={resetSearch}>
                   絞り込みを解除する
                 </button>
               )}
@@ -312,25 +416,32 @@ export function ReservationListPage() {
           )}
 
           {!isEmpty && (
-            <nav className="pager" aria-label="ページ送り">
-              <button
-                type="button"
-                disabled={isInitialLoading || targetPage <= 1}
-                onClick={() => updateSearch({ ...search, page: targetPage - 1 })}
-              >
-                前へ
-              </button>
-              <span>
-                ページ {displayedPage} / {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={isInitialLoading || result === null || targetPage >= totalPages}
-                onClick={() => updateSearch({ ...search, page: targetPage + 1 })}
-              >
-                次へ
-              </button>
-            </nav>
+            <div className="list__bar list__bar--bottom">
+              <p className="summary">
+                {isInitialLoading ? '' : `${firstIndex}–${lastIndex} / 全${total}件`}
+              </p>
+              <nav className="pager" aria-label="ページ送り">
+                <button
+                  type="button"
+                  className="button button--secondary button--small"
+                  disabled={isInitialLoading || targetPage <= 1}
+                  onClick={() => updateSearch({ ...search, page: targetPage - 1 })}
+                >
+                  前へ
+                </button>
+                <span>
+                  ページ {displayedPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="button button--secondary button--small"
+                  disabled={isInitialLoading || result === null || targetPage >= totalPages}
+                  onClick={() => updateSearch({ ...search, page: targetPage + 1 })}
+                >
+                  次へ
+                </button>
+              </nav>
+            </div>
           )}
         </>
       )}
@@ -354,7 +465,11 @@ function SortableHeader({
     <th scope="col" aria-sort={ariaSort}>
       <button type="button" className="table__sort" onClick={onToggle}>
         {LIST_SORT_LABELS[field]}
-        {isActive && <span aria-hidden="true">{search.order === 'asc' ? ' ▲' : ' ▼'}</span>}
+        {isActive && (
+          <span className="table__mark" aria-hidden="true">
+            {search.order === 'asc' ? '▲' : '▼'}
+          </span>
+        )}
       </button>
     </th>
   )

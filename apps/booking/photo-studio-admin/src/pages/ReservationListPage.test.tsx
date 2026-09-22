@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -264,7 +264,8 @@ describe('ReservationListPage', () => {
     renderAt('/')
     await findRows()
 
-    // 絞り込み
+    // 絞り込み（スタジオは折りたたみの内側にあるため、先に開く）
+    await user.click(screen.getByRole('button', { name: '詳細な条件' }))
     await user.click(screen.getByLabelText('Aスタジオ'))
     await waitFor(() => expect(currentSearch().get('studio')).toBe('studio-a'))
 
@@ -291,6 +292,132 @@ describe('ReservationListPage', () => {
 
     const table = screen.getByRole('table')
     expect(table.parentElement).toHaveClass('table-wrapper')
+  })
+
+  it('詳細な条件は既定で折りたたまれ、開く操作で利用できる', async () => {
+    const user = userEvent.setup()
+    renderAt('/')
+    await findRows()
+
+    const toggle = screen.getByRole('button', { name: '詳細な条件' })
+    const extra = screen.getByLabelText('Aスタジオ').closest('[id]')
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(extra).not.toBeVisible()
+
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(extra).toBeVisible()
+  })
+
+  it('折りたたんだ側の条件がURLにある場合は開いた状態で表示する', async () => {
+    renderAt('/?status=confirmed')
+    await findRows()
+
+    expect(screen.getByRole('button', { name: '詳細な条件' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    )
+    expect(screen.getByLabelText('確定')).toBeVisible()
+  })
+
+  it('適用中の条件を件数とともに示す', async () => {
+    renderAt('/?from=2026-09-21&status=confirmed&q=家族')
+
+    const legend = await screen.findByText('適用中の条件')
+    const chips = legend.parentElement
+    expect(chips).not.toBeNull()
+    if (chips === null) return
+
+    expect(within(chips).getByText('期間 2026-09-21〜指定なし')).toBeInTheDocument()
+    expect(within(chips).getByText('確定')).toBeInTheDocument()
+    expect(within(chips).getByText('「家族」')).toBeInTheDocument()
+
+    // 件数と同じ帯に置き、何で絞った結果の件数なのかが分かるようにする。
+    const summary = await screen.findByText(/件中|該当する予約はありません/)
+    expect(summary.parentElement).toBe(chips.parentElement)
+  })
+
+  it('ステータスは色に加えて文字で示す', async () => {
+    renderAt('/?status=confirmed')
+    const rows = await findRows()
+
+    for (const row of rows) {
+      // ステータスの列は表示名そのものを読み取れる。
+      expect(cellsOf(row)[2]).toBe('確定')
+      expect(within(row).getByText('確定')).toBeInTheDocument()
+    }
+  })
+
+  it('日付のリンクに加えて行全体が詳細への導線となる', async () => {
+    const user = userEvent.setup()
+    // 検索条件を持つ状態で確かめる。行の導線もリンクと同じ条件を引き渡す。
+    const rows = await (async () => {
+      renderAt('/?status=confirmed')
+      return findRows()
+    })()
+
+    const firstRow = rows[0]
+    expect(firstRow).toBeDefined()
+    if (firstRow === undefined) return
+
+    // リンクは日付セルの1つのみを保つ。
+    expect(within(firstRow).getAllByRole('link')).toHaveLength(1)
+    const expected = within(firstRow).getByRole('link').getAttribute('href')
+
+    // リンク以外のセルを押しても詳細へ遷移する。
+    await user.click(within(firstRow).getByText(/./, { selector: 'td:nth-child(5)' }))
+    await waitFor(() =>
+      expect(`${window.location.pathname}${window.location.search}`).toBe(expected),
+    )
+  })
+
+  it('修飾キーを伴うクリックでは行の導線を働かせない', async () => {
+    const user = userEvent.setup()
+    const rows = await (async () => {
+      renderAt('/')
+      return findRows()
+    })()
+
+    const firstRow = rows[0]
+    expect(firstRow).toBeDefined()
+    if (firstRow === undefined) return
+    const cell = within(firstRow).getByText(/./, { selector: 'td:nth-child(5)' })
+
+    // 新しいタブで開く意図は既定の動作へ委ね、現在のタブは遷移させない。
+    for (const modifier of ['Meta', 'Control', 'Shift', 'Alt']) {
+      await user.keyboard(`{${modifier}>}`)
+      await user.click(cell)
+      await user.keyboard(`{/${modifier}}`)
+      expect(window.location.pathname).toBe('/')
+    }
+  })
+
+  it('文字を選択した直後のクリックでは行の導線を働かせない', async () => {
+    const rows = await (async () => {
+      renderAt('/')
+      return findRows()
+    })()
+
+    const firstRow = rows[0]
+    expect(firstRow).toBeDefined()
+    if (firstRow === undefined) return
+    const cell = within(firstRow).getByText(/./, { selector: 'td:nth-child(5)' })
+
+    // 顧客名のコピーなど、選択のためのドラッグでも、ボタンを離した時点で
+    // click が発生する。押下から始まる一連の操作では選択が解除されるため、
+    // 選択を保ったまま click のみを起こして再現する。
+    const range = document.createRange()
+    range.selectNodeContents(cell)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    expect(selection?.isCollapsed).toBe(false)
+
+    fireEvent.click(cell)
+    expect(window.location.pathname).toBe('/')
+
+    selection?.removeAllRanges()
   })
 
   it('各行から詳細画面へ遷移できる', async () => {
