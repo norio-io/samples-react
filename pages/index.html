@@ -223,6 +223,20 @@
         margin: 0;
       }
 
+      /* 別の制作物への導線。注記より前に置き、注記よりわずかに大きくする。 */
+      .foot__link {
+        margin-bottom: 0.625rem;
+        font-size: 0.8125rem;
+      }
+
+      .foot__link a {
+        color: var(--accent);
+      }
+
+      .foot__link a:hover {
+        color: var(--accent-d);
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .card {
           transition: none;
@@ -284,6 +298,11 @@
 
     <footer class="foot">
       <div class="wrap">
+        <p class="foot__link">
+          このほかに、HTML・CSS・JavaScript のみで制作したサンプルを
+          <a href="https://norio-io.github.io/samples/">制作サンプル（静的サイト）</a>
+          にまとめています。
+        </p>
         <p>掲載しているサンプルはすべて架空の題材です。実在の企業・団体・個人とは一切関係しません。</p>
       </div>
     </footer>
