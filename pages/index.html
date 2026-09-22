@@ -141,15 +141,18 @@
         list-style: none;
       }
 
+      /*
+       * リンクは題名だけに掛け、押せる範囲は疑似要素でカード全体へ広げる。
+       * カード全体をリンクにするとアクセシブル名が題名・概要・使用技術の
+       * 連結となり、支援技術のリンク一覧で読み上げが長くなるため。
+       */
       .card {
-        display: block;
+        position: relative;
         padding: clamp(1.125rem, 2.5vw, 1.5rem);
         border: 1px solid var(--line);
         border-radius: var(--radius);
         background-color: var(--surface);
         box-shadow: var(--shadow);
-        color: inherit;
-        text-decoration: none;
         transition:
           border-color 0.2s,
           transform 0.2s;
@@ -165,10 +168,20 @@
         font-size: 1.05rem;
         font-weight: 700;
         letter-spacing: 0.02em;
-        color: var(--accent);
       }
 
-      .card:hover .card__title {
+      .card__title a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      .card__title a::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+      }
+
+      .card:hover .card__title a {
         color: var(--accent-d);
       }
 
@@ -238,13 +251,17 @@
         <section class="group">
           <div class="group__head">
             <h2 class="group__title">予約サイト</h2>
-            <span class="group__count">1</span>
+            <span class="group__count">1件</span>
             <span class="group__rule"></span>
           </div>
           <ul class="list">
             <li>
-              <a class="card" href="/samples-react/booking/photo-studio-admin/">
-                <h3 class="card__title">レンタル撮影スタジオの予約管理画面</h3>
+              <article class="card">
+                <h3 class="card__title">
+                  <a href="/samples-react/booking/photo-studio-admin/"
+                    >レンタル撮影スタジオの予約管理画面</a
+                  >
+                </h3>
                 <p class="card__summary">
                   予約サイトの裏側にあたる、店舗側の管理画面の制作サンプル。期間・キーワード・スタジオ・ステータスで絞り込む予約一覧、確認を挟むステータスの変更、重複を検出する予約の登録までを実装しています。検索条件はURLに保持し、ブラウザの戻ると直接指定に対応しています。
                 </p>
@@ -258,7 +275,7 @@
                   <li class="tags__item">ACCESSIBILITY</li>
                   <li class="tags__item">RESPONSIVE</li>
                 </ul>
-              </a>
+              </article>
             </li>
           </ul>
         </section>
