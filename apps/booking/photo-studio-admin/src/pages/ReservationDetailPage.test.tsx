@@ -1,12 +1,14 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Reservation, ReservationStatus } from '../domain/types'
 import { AppRoutes } from '../app/AppRoutes'
 import { resetMockStore } from '../mock/api'
 import { resetMutationFailureRate, setMutationFailureRate } from '../mock/config'
 import { createSeedReservations } from '../mock/seed'
+import { ReservationStatusOverridesProvider } from '../features/reservations/statusOverrides'
+import { ReservationDetailPage } from './ReservationDetailPage'
 
 /** 指定のステータスを持つ初期データを返す。 */
 function reservationOfStatus(status: ReservationStatus): Reservation {
@@ -31,6 +33,39 @@ function renderAt(path: string) {
 function statusText(): string {
   const term = screen.getByText('ステータス')
   return term.nextElementSibling?.textContent ?? ''
+}
+
+/** 画面を保ったまま予約IDだけを変えられる形で描画する。 */
+function renderWithNavigator(fromId: string, toId: string) {
+  function Navigator() {
+    const navigate = useNavigate()
+    return (
+      <button type="button" onClick={() => navigate(`/reservations/${toId}`)}>
+        次の予約へ
+      </button>
+    )
+  }
+
+  return render(
+    <MemoryRouter initialEntries={[`/reservations/${fromId}`]}>
+      <ReservationStatusOverridesProvider>
+        <Navigator />
+        <Routes>
+          <Route path="reservations/:reservationId" element={<ReservationDetailPage />} />
+        </Routes>
+      </ReservationStatusOverridesProvider>
+    </MemoryRouter>,
+  )
+}
+
+/** 顧客名が重ならない2件の予約を返す。1件目は仮予約とする。 */
+function twoReservations(): { first: Reservation; second: Reservation } {
+  const first = reservationOfStatus('tentative')
+  const second = createSeedReservations().find(
+    (item) => item.id !== first.id && item.customerName !== first.customerName,
+  )
+  if (second === undefined) throw new Error('初期データに条件を満たす2件がありません')
+  return { first, second }
 }
 
 beforeEach(() => {
@@ -91,6 +126,53 @@ describe('ReservationDetailPage', () => {
       screen.getByText('予約ID').compareDocumentPosition(heading) &
         Node.DOCUMENT_POSITION_PRECEDING,
     ).toBeTruthy()
+  })
+
+  it('別の予約へ移ると、前の予約を残さず読み込み中から始める', async () => {
+    const user = userEvent.setup()
+    const { first, second } = twoReservations()
+    renderWithNavigator(first.id, second.id)
+
+    // 顧客名は見出しに出る。値そのものは項目にも並ぶため、見出しで見分ける。
+    expect(
+      await screen.findByRole('heading', { level: 2, name: first.customerName }),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '次の予約へ' }))
+
+    // 前の予約の内容を残したまま表示しない。
+    expect(
+      screen.queryByRole('heading', { level: 2, name: first.customerName }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('読み込み中')).toBeInTheDocument()
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: second.customerName }),
+    ).toBeInTheDocument()
+  })
+
+  it('更新の応答を待つ間に別の予約へ移っても、移った先の画面が壊れない', async () => {
+    const user = userEvent.setup()
+    const { first, second } = twoReservations()
+    renderWithNavigator(first.id, second.id)
+
+    // 応答（300ms）を待たずに別の予約へ移る。
+    await user.click(await screen.findByRole('button', { name: '確定する' }))
+    await user.click(screen.getByRole('button', { name: '次の予約へ' }))
+
+    // 移った先が読み込み中のまま止まらない。
+    expect(
+      await screen.findByRole('heading', { level: 2, name: second.customerName }),
+    ).toBeInTheDocument()
+
+    // 前の予約に対する応答が返っても、移った先の表示を書き換えない。
+    await waitFor(() => expect(screen.queryByText('更新中…')).not.toBeInTheDocument())
+    expect(
+      screen.getByRole('heading', { level: 2, name: second.customerName }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('読み込み中')).not.toBeInTheDocument()
+    // 前の予約の完了は、移った先の画面へ通知しない。
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
   })
 
   it('存在しない id では画面が壊れず案内を表示する', async () => {
