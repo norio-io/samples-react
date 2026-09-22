@@ -3,34 +3,289 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>samples-react</title>
+    <title>制作サンプル（React + TypeScript） | norio-io</title>
+    <meta name="description" content="React + TypeScript の制作サンプル集。" />
     <style>
-      body {
-        margin: 0 auto;
-        padding: 2rem 1rem;
-        max-width: 40rem;
-        font-family: system-ui, sans-serif;
+      /*
+       * 配色と書体は apps/booking/photo-studio-admin/src/styles.css と同じ値を用いる。
+       * 収録サンプルと入口が同じ制作物として読めるようにするため。
+       * 依存を増やさないため、webフォントは読み込まない。
+       */
+      :root {
+        --ink: #17191c;
+        --gray: #6b7075;
+        --line: #e3e5e8;
+        --line-strong: #cdd1d5;
+        --bg: #fafafa;
+        --surface: #fff;
+        --accent: #2563c9;
+        --accent-d: #1c4ea3;
+
+        --radius: 6px;
+        --shadow: 0 1px 2px rgb(23 25 28 / 6%);
+
+        /* 余白は幅に応じて変える。狭い画面で左右の余白が過大にならないようにする。 */
+        --pad: clamp(1.25rem, 5vw, 3rem);
+
+        font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo,
+          system-ui, sans-serif;
+        font-size: 16px;
         line-height: 1.7;
-        color: #1f2328;
+        color: var(--ink);
+        background-color: var(--bg);
       }
-      ul {
-        padding-left: 1.2rem;
+
+      * {
+        box-sizing: border-box;
       }
-      footer {
-        margin-top: 2rem;
-        font-size: 0.85rem;
-        color: #59636e;
+
+      /* 収録が少ないうちも脚部が画面の下端に着くようにする。 */
+      body {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        margin: 0;
+      }
+
+      /* 焦点の位置が常に視認できるようにする。 */
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .wrap {
+        width: 100%;
+        max-width: 60rem;
+        margin-inline: auto;
+        padding-inline: var(--pad);
+      }
+
+      /* ------------------------------------------------------------ 頭部 */
+
+      /* 帯は画面の幅いっぱいに敷き、内容だけを中央へ寄せる。 */
+      .head {
+        padding-block: clamp(2.5rem, 7vw, 4.5rem) clamp(1.75rem, 4vw, 2.75rem);
+        border-bottom: 1px solid var(--line);
+        background-color: var(--surface);
+      }
+
+      .head__eyebrow {
+        margin: 0 0 0.75rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        color: var(--accent);
+      }
+
+      .head__title {
+        margin: 0;
+        font-size: clamp(1.5rem, 3.2vw, 2rem);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      .head__lead {
+        max-width: 56ch;
+        margin: 0.875rem 0 0;
+        font-size: 0.9rem;
+        color: var(--gray);
+      }
+
+      /* ------------------------------------------------------------ 一覧 */
+
+      .main {
+        flex: 1;
+        padding-block: clamp(1.75rem, 4vw, 2.75rem) clamp(3rem, 8vw, 5rem);
+      }
+
+      /* 制作種別ごとに区分する。収録が増えても同じ形で並べられるようにする。 */
+      .group + .group {
+        margin-top: clamp(2rem, 5vw, 3rem);
+        padding-top: clamp(1.5rem, 3.5vw, 2.25rem);
+        border-top: 1px solid var(--line);
+      }
+
+      .group__head {
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+        margin-bottom: clamp(1rem, 2.5vw, 1.375rem);
+      }
+
+      .group__title {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+      }
+
+      .group__count {
+        font-size: 0.7rem;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.12em;
+        color: var(--gray);
+      }
+
+      /* 見出しから右端まで罫線を引き、区分の広がりを示す。 */
+      .group__rule {
+        flex: 1;
+        height: 1px;
+        background-color: var(--line-strong);
+      }
+
+      .list {
+        display: grid;
+        gap: 1rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      /*
+       * リンクは題名だけに掛け、押せる範囲は疑似要素でカード全体へ広げる。
+       * カード全体をリンクにするとアクセシブル名が題名・概要・使用技術の
+       * 連結となり、支援技術のリンク一覧で読み上げが長くなるため。
+       */
+      .card {
+        position: relative;
+        padding: clamp(1.125rem, 2.5vw, 1.5rem);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background-color: var(--surface);
+        box-shadow: var(--shadow);
+        transition:
+          border-color 0.2s,
+          transform 0.2s;
+      }
+
+      .card:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+      }
+
+      .card__title {
+        margin: 0 0 0.5rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .card__title a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      .card__title a::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+      }
+
+      .card:hover .card__title a {
+        color: var(--accent-d);
+      }
+
+      .card__summary {
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--gray);
+      }
+
+      /* 使用技術は一覧のまま折り返す。狭い画面でも横へあふれさせない。 */
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin: 1rem 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .tags__item {
+        padding: 0.2rem 0.6rem;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
+        color: var(--gray);
+      }
+
+      /* ------------------------------------------------------------ 脚部 */
+
+      .foot {
+        padding-block: 1.5rem;
+        border-top: 1px solid var(--line);
+        font-size: 0.75rem;
+        color: var(--gray);
+      }
+
+      .foot p {
+        margin: 0;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .card {
+          transition: none;
+        }
+
+        .card:hover {
+          transform: none;
+        }
       }
     </style>
   </head>
   <body>
-    <h1>samples-react</h1>
-    <p>React + TypeScript の制作サンプル集。</p>
-    <ul>
-      <li>
-        <a href="/samples-react/booking/photo-studio-admin/">撮影スタジオ 予約管理画面</a>
-      </li>
-    </ul>
-    <footer>本サイトのサンプルはすべて架空の題材であり、実在の企業・団体とは関係しません。</footer>
+    <header class="head">
+      <div class="wrap">
+        <p class="head__eyebrow">REACT + TYPESCRIPT</p>
+        <h1 class="head__title">制作サンプル</h1>
+        <p class="head__lead">
+          React と TypeScript
+          で制作したサンプルを、制作種別ごとにまとめています。いずれも架空の題材で、実在の企業・団体とは関係ありません。
+        </p>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="wrap">
+        <section class="group">
+          <div class="group__head">
+            <h2 class="group__title">予約サイト</h2>
+            <span class="group__count">1件</span>
+            <span class="group__rule"></span>
+          </div>
+          <ul class="list">
+            <li>
+              <article class="card">
+                <h3 class="card__title">
+                  <a href="/samples-react/booking/photo-studio-admin/"
+                    >レンタル撮影スタジオの予約管理画面</a
+                  >
+                </h3>
+                <p class="card__summary">
+                  予約サイトの裏側にあたる、店舗側の管理画面の制作サンプル。期間・キーワード・スタジオ・ステータスで絞り込む予約一覧、確認を挟むステータスの変更、重複を検出する予約の登録までを実装しています。検索条件はURLに保持し、ブラウザの戻ると直接指定に対応しています。
+                </p>
+                <ul class="tags">
+                  <li class="tags__item">REACT</li>
+                  <li class="tags__item">TYPESCRIPT</li>
+                  <li class="tags__item">VITE</li>
+                  <li class="tags__item">REACT ROUTER</li>
+                  <li class="tags__item">VITEST</li>
+                  <li class="tags__item">SPA</li>
+                  <li class="tags__item">ACCESSIBILITY</li>
+                  <li class="tags__item">RESPONSIVE</li>
+                </ul>
+              </article>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap">
+        <p>掲載しているサンプルはすべて架空の題材です。実在の企業・団体・個人とは一切関係しません。</p>
+      </div>
+    </footer>
   </body>
 </html>
